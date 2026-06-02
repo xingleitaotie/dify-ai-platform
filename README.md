@@ -43,7 +43,7 @@ Dify AI Platform 是一个基于 Java  Spring Cloud 架构的 AI 应用开发平
 
 ## 🚀 快速开始
 
-### 1. 环境要求
+### 一、 环境要求
 
 - JDK 1.8+
 - Maven 3.6+
@@ -51,7 +51,8 @@ Dify AI Platform 是一个基于 Java  Spring Cloud 架构的 AI 应用开发平
 - Docker & Docker Compose（可选）
 - Chroma 向量数据库（或修改配置使用其他）
 
-### 2. 方式一 :  本地运行（按顺序启动）
+### 二、项目启动
+### 方式一 :  本地运行（按顺序启动）
 
 #### 1. 安装依赖
 mvn clean install
@@ -71,7 +72,7 @@ mvn spring-boot:run
 - cd ../dify-user-service && mvn spring-boot:run
 
 
-### 3. 方式三 ：Docker Compose一键部署
+### 方式二 ：Docker Compose一键部署
 - cd dify-ai-platform
 - mvn clean
 - cd docker
