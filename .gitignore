@@ -1,0 +1,28 @@
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.settings/
+.project
+.classpath
+.vscode/
+.mvn/
+
+# Node modules
+node_modules/
+dify-web/node_modules/
+dify-web/dist/
+dify-web/.vite/
+dify-web/.cache
+dify-web/*.log
+
+# Build outputs
+dist/
+build/
+target/
+*.class
+
+# OS files
+.DS_Store
+Thumbs.db
