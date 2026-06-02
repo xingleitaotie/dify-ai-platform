@@ -61,14 +61,15 @@ cd dify-eureka-service
 mvn spring-boot:run
 
 #### 3. 启动其他服务（按需启动）
-cd ../dify-api-gateway && mvn spring-boot:run
-cd ../dify-user-service && mvn spring-boot:run
-cd ../dify-llm-service && mvn spring-boot:run
-cd ../dify-rag-service && mvn spring-boot:run
-cd ../dify-function-service && mvn spring-boot:run
-cd ../dify-agent-service && mvn spring-boot:run
-cd ../dify-prompt-engine && mvn spring-boot:run
-cd ../dify-workflow-service && mvn spring-boot:run
+- cd ../dify-llm-service && mvn spring-boot:run
+- cd ../dify-rag-service && mvn spring-boot:run
+- cd ../dify-function-service && mvn spring-boot:run
+- cd ../dify-agent-service && mvn spring-boot:run
+- cd ../dify-prompt-engine && mvn spring-boot:run
+- cd ../dify-workflow-service && mvn spring-boot:run
+- cd ../dify-api-gateway && mvn spring-boot:run
+- cd ../dify-user-service && mvn spring-boot:run
+
 
 ### 3. 方式三 ：Docker Compose一键部署
 - cd dify-ai-platform
