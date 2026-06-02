@@ -71,6 +71,11 @@ mvn spring-boot:run
 - cd ../dify-api-gateway && mvn spring-boot:run
 - cd ../dify-user-service && mvn spring-boot:run
 
+#### 4. dify-web启动
+- cd dify-web
+- npm install
+- npm run dev
+
 
 ### 方式二 ：Docker Compose一键部署
 - cd dify-ai-platform
