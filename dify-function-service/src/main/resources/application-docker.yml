@@ -1,0 +1,24 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: dify-function-service
+
+# 容器内微服务调用地址（服务名访问）
+dify:
+  service:
+    llm: http://dify-llm-service:8081
+    rag: http://dify-rag-service:8082
+
+# 函数配置不变
+function:
+  enable-default-functions: true
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://dify-eureka-server:8085/eureka/  # 注册到中心
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}

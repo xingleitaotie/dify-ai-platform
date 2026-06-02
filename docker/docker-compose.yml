@@ -1,0 +1,284 @@
+version: '3.8'
+
+networks:
+  dify-ai-network:
+    name: dify-ai-network
+    driver: bridge
+
+volumes:
+  chroma-data:
+  redis-data:
+  mysql-data:
+  prompts-data:
+
+services:
+  # ==========================
+  # Chroma 向量库
+  # ==========================
+  chroma:
+    image: chromadb/chroma:1.4.1
+    container_name: dify-chroma
+    ports:
+      - "8000:8000"
+    networks:
+      - dify-ai-network
+    volumes:
+      - chroma-data:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_AUTHN_PROVIDER=none
+      - IS_PERSISTENT=TRUE
+    restart: always
+
+  # ==========================
+  # Redis 缓存
+  # ==========================
+  redis:
+    image: redis:6.2-alpine
+    container_name: dify-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - dify-ai-network
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: always
+
+  # ==========================
+# MySQL 数据库
+# ==========================
+  mysql:
+    image: mysql:8.0.36
+    container_name: dify-mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - dify-ai-network
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 挂载整个 sql 目录（按顺序执行）
+      - ../sql:/docker-entrypoint-initdb.d:ro
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=agent
+      - MYSQL_ROOT_HOST=%
+      # 添加字符集环境变量
+      - MYSQL_CHARACTER_SET_SERVER=utf8mb4
+      - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
+      - LANG=C.UTF-8
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --init-connect='SET NAMES utf8mb4'
+      - --skip-character-set-client-handshake
+    restart: always
+
+  # ==========================
+  # Eureka 注册中心
+  # ==========================
+  dify-eureka-server:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-eureka-server
+    container_name: dify-eureka-server
+    ports:
+      - "8085:8085"
+    networks:
+      - dify-ai-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+
+  # ==========================
+  # API网关
+  # ==========================
+  dify-api-gateway:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-api-gateway
+    container_name: dify-api-gateway
+    ports:
+      - "9000:9000"
+    networks:
+      - dify-ai-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+    depends_on:
+      - dify-eureka-server
+
+  # ==========================
+  # LLM 服务
+  # ==========================
+  dify-llm-service:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-llm-service
+    container_name: dify-llm-service
+    ports:
+      - "8081:8081"
+    networks:
+      - dify-ai-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+    depends_on:
+      - chroma
+      - mysql
+      - dify-eureka-server
+
+  # ==========================
+  # RAG 服务
+  # ==========================
+  dify-rag-service:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-rag-service
+    container_name: dify-rag-service
+    ports:
+      - "8082:8082"
+    networks:
+      - dify-ai-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+    depends_on:
+      - chroma
+      - dify-eureka-server
+
+  # ==========================
+  # Function 服务
+  # ==========================
+  dify-function-service:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-function-service
+    container_name: dify-function-service
+    ports:
+      - "8083:8083"
+    networks:
+      - dify-ai-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+    depends_on:
+      - dify-eureka-server
+
+  # ==========================
+  # Agent 服务
+  # ==========================
+  dify-agent-service:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-agent-service
+    container_name: dify-agent-service
+    ports:
+      - "8084:8084"
+    networks:
+      - dify-ai-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+    depends_on:
+      - redis
+      - mysql
+      - dify-eureka-server
+
+  # ==========================
+  # Prompt 服务
+  # ==========================
+  dify-prompt-engine:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-prompt-engine
+    container_name: dify-prompt-engine
+    ports:
+      - "8087:8087"
+    networks:
+      - dify-ai-network
+    volumes:
+      - ./prompts:/app/prompts
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+    depends_on:
+      - mysql
+      - dify-eureka-server
+
+  # ==========================
+  # Workflow 服务
+  # ==========================
+  dify-workflow-service:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-workflow-service
+    container_name: dify-workflow-service
+    ports:
+      - "8088:8088"
+    networks:
+      - dify-ai-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+    depends_on:
+      - mysql
+      - redis
+      - dify-eureka-server
+
+  # ==========================
+  # User 用户服务
+  # ==========================
+  dify-user-service:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-user-service
+    container_name: dify-user-service
+    ports:
+      - "8086:8086"
+    networks:
+      - dify-ai-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+    depends_on:
+      - mysql
+      - dify-eureka-server
+
+  # ==========================
+  # 前端 Web 服务
+  # ==========================
+  dify-web:
+    build:
+      context: ../dify-web
+      dockerfile: Dockerfile
+    container_name: dify-web
+    ports:
+      - "80:80"
+    networks:
+      - dify-ai-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:9000
+    restart: always
+    depends_on:
+      - dify-api-gateway

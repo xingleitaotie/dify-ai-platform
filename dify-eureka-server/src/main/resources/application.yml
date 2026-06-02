@@ -1,0 +1,17 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: dify-eureka-server
+
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    registerWithEureka: false
+    fetchRegistry: false
+    serviceUrl:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+  server:
+    enable-self-preservation: false  # 开发环境关闭自我保护

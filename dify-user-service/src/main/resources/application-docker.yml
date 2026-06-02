@@ -1,0 +1,39 @@
+spring:
+  # 服务名称（与 Eureka 一致）
+  application:
+    name: dify-user-service
+
+  # 数据库配置（Docker 内部用服务名访问 MySQL）
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://mysql:3306/agent?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+
+# Eureka 注册中心（Docker 内部用服务名访问）
+eureka:
+  client:
+    service-url:
+      defaultZone: http://dify-eureka-server:8085/eureka/
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+# MyBatis-Plus
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+# JWT 配置（Docker 环境专用）
+jwt:
+  secret: abcdefghijklmnopqrstuvwxyz123456
+  expire: 86400    # 24小时
+
+# 服务端口
+server:
+  port: 8086

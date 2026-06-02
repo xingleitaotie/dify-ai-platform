@@ -1,0 +1,70 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: dify-prompt-engine
+  mvc:
+    throw-exception-if-no-handler-found: true
+    web:
+      resources:
+        static-locations: classpath:/static/
+        add-mappings: true
+  # Docker 环境数据库配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 使用 Docker 容器名连接 MySQL（假设 MySQL 容器名为 mysql）
+    url: jdbc:mysql://mysql:3306/agent?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+  jdbc:
+    template:
+      query-timeout: 3
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.dify.prompt.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# Eureka 注册中心配置
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://dify-eureka-server:8085/eureka/  # 注册到中心
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+# dify-prompt-engine 配置
+dify:
+  prompt:
+    template-path: prompts/
+    template-format: yaml
+    enable-cache: true
+    max-content-length: 2000
+    default-temperature: 0.3
+    version:
+      active-versions:
+        document.summary: v2.1.0
+        rag.qa: v1.2.0
+        function.calling: v1.3.0
+        agent.decision: v1.1.0
+        agent.final.answer: v1.2.0
+      enable-ab-test: false
+
+# Feign 超时配置
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 300000
+        readTimeout: 1200000
+
+logging:
+  level:
+    com.dify.prompt: DEBUG
+  # Docker 环境使用 JSON 格式日志
+  pattern:
+    console: "%d{ISO8601} %highlight(%-5level) [%thread] %logger{36} - %msg%n"

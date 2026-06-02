@@ -1,0 +1,58 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: dify-workflow-service
+  # 数据库配置（Docker 内部服务名，不是 localhost！）
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://dify-mysql:3306/agent?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+  # 必须配置！让JdbcTemplate可用
+  jdbc:
+    template:
+      query-timeout: 3
+  # 生产级 Redis 配置（Docker 内部服务名）
+  redis:
+    host: dify-redis  # ✅ 必须是服务名！
+    port: 6379
+    database: 0
+    timeout: 10000
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1
+  cloud:
+    loadbalancer:
+      enabled: true
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.dify.prompt.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://dify-eureka-server:8085/eureka/  # 注册到中心（Docker服务名）
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+# Feign 超时配置（解决 Read timed out）
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 600000    # 10分钟
+        readTimeout: 1200000      # 20分钟！足够模型推理
+
+logging:
+  level:
+    com.dify: DEBUG

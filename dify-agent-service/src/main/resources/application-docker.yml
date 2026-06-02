@@ -1,0 +1,62 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: dify-agent-service
+  # 数据库配置（Docker 内部服务名，不是 localhost！）
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://dify-mysql:3306/agent?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+  # JdbcTemplate
+  jdbc:
+    template:
+      query-timeout: 3
+  # Redis 配置（Docker 内部服务名）
+  redis:
+    host: dify-redis  # ✅ 这里必须是服务名！
+    port: 6379
+    database: 0
+    timeout: 10000
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1
+  # 流式长连接不超时
+  mvc:
+    async:
+      request-timeout: -1
+
+mybatis-plus:
+  type-aliases-package: com.washy.dify.agent.domain.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# 内部服务调用（Docker 服务名）
+function:
+  service-url: http://dify-function-service:8083
+
+llm:
+  service-url: http://dify-llm-service:8081
+  action: /api/llm/stream/chat
+
+# Feign 超长超时（流式必须）
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 300000
+        readTimeout: 1200000
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://dify-eureka-server:8085/eureka/  # 注册到中心
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Encoding" native2AsciiForPropertiesFiles="true" defaultCharsetForPropertiesFiles="UTF-8">
+    <file url="file://$APPLICATION_HOME_DIR$/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-agent-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-api-gateway/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-common/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-document-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-eureka-server/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-feign-api/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-function-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-llm-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-prompt-engine/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-rag-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-segmenter-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-split-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-user-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dify-workflow-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
+  </component>
+</project>

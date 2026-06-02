@@ -1,0 +1,120 @@
+version: '3.8'
+# 主要承诺，由于本人电脑比较老，所以此配置未实验
+# 自定义网络：所有服务在同一网络，可通过服务名直接访问
+networks:
+  dify-ai-network:
+    name: dify-ai-network
+    driver: bridge
+
+# 数据卷：Chroma向量库持久化
+volumes:
+  chroma-data:
+
+services:
+  # ==========================
+  # 基础依赖服务 1：Ollama大模型服务
+  # ==========================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: dify-ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - dify-ai-network
+    restart: always
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    # 启动后自动拉取模型
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        nohup ollama serve &
+        sleep 5 &&
+        ollama pull qwen2.5:3b-instruct-q4_K_M &&
+        ollama pull nomic-embed-text &&
+        wait
+
+  # ==========================
+  # 基础依赖服务 2：Chroma向量库
+  # ==========================
+  chroma:
+    image: chromadb/chroma:1.4.1
+    container_name: dify-chroma
+    ports:
+      - "8000:8000"
+    networks:
+      - dify-ai-network
+    volumes:
+      - chroma-data:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_AUTHN_PROVIDER=none
+    restart: always
+    depends_on:
+      - ollama
+
+  # ==========================
+  # 业务微服务 1：LLM对话核心服务
+  # ==========================
+  dify-llm-service:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-llm-service
+    container_name: dify-llm-service
+    ports:
+      - "8081:8081"
+    networks:
+      - dify-ai-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+    depends_on:
+      - ollama
+      - chroma
+
+  # ==========================
+  # 业务微服务 2：RAG知识库服务
+  # ==========================
+  dify-rag-service:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-rag-service
+    container_name: dify-rag-service
+    ports:
+      - "8082:8082"
+    networks:
+      - dify-ai-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+    depends_on:
+      - ollama
+      - chroma
+      - dify-llm-service
+
+  # ==========================
+  # 业务微服务 3：函数插件服务
+  # ==========================
+  dify-function-service:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-function-service
+    container_name: dify-function-service
+    ports:
+      - "8083:8083"
+    networks:
+      - dify-ai-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+    depends_on:
+      - dify-llm-service

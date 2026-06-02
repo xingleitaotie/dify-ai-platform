@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/dify-common/dify-common.iml" filepath="$PROJECT_DIR$/dify-common/dify-common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/dify-eureka-server/dify-eureka-server.iml" filepath="$PROJECT_DIR$/dify-eureka-server/dify-eureka-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/dify-feign-api/dify-feign-api.iml" filepath="$PROJECT_DIR$/dify-feign-api/dify-feign-api.iml" />
+      <module fileurl="file://$PROJECT_DIR$/dify-function-service/dify-function-service.iml" filepath="$PROJECT_DIR$/dify-function-service/dify-function-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/dify-llm-service/dify-llm-service.iml" filepath="$PROJECT_DIR$/dify-llm-service/dify-llm-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/dify-rag-service/dify-rag-service.iml" filepath="$PROJECT_DIR$/dify-rag-service/dify-rag-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/dify-user-service/dify-user-service.iml" filepath="$PROJECT_DIR$/dify-user-service/dify-user-service.iml" />
+    </modules>
+  </component>
+</project>

@@ -1,0 +1,72 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: dify-rag-service
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+
+# 文档处理配置
+document:
+  chunk:
+    max-size: 2000        # 每块最大字符数
+    min-size: 200         # 每块最小字符数（小于此值的块会被合并）
+    overlap: 100          # 块之间重叠字符数
+    max-level: 9          # 最大标题级别
+  image:
+    storage-path: ./data/images     # 图片本地存储路径
+    enabled: true
+    max-size: 10MB                  # 单张图片最大大小
+  table:
+    enabled: true
+    max-rows: 1000                  # 表格最大行数
+
+
+dify:
+  rag:
+    # 向量模型配置：OLLAMA/WENXIN/ALIYUN/OPENAI/ZHIPU
+    embedding-type: OLLAMA
+    # 向量库配置：CHROMA/MILVUS/ES/PINECONE
+    vector-store-type: CHROMA
+    embedding:
+      # Ollama配置
+      ollama-base-url: http://localhost:11434
+      ollama-model: nomic-embed-text
+      ollama-timeout: 300000
+      # 文心配置（切换类型后自动生效）
+      wenxin-api-key: xxx
+      wenxin-secret-key: xxx
+    vector-store:
+      # Chroma配置
+      chroma-host: localhost
+      chroma-port: 8000
+      chroma-tenant: default_tenant
+      chroma-database: default_database
+      chroma-collection: dify_knowledge_base
+      # Milvus配置（切换类型后自动生效）
+      milvus-host: localhost
+      milvus-port: 19530
+
+logging:
+  level:
+    com.dify: info
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8085/eureka/  # 注册到中心
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+# Feign 超时配置（解决 Read timed out）
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 600000    # 10分钟
+        readTimeout: 1200000      # 20分钟！足够模型推理

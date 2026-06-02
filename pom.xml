@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.washy.dify</groupId>
+    <artifactId>dify-ai-platform</artifactId>
+    <packaging>pom</packaging>
+    <modules>
+        <module>dify-common</module>
+        <module>dify-llm-service</module>
+        <module>dify-rag-service</module>
+        <module>dify-function-service</module>
+        <module>dify-agent-service</module>
+        <module>dify-feign-api</module>
+        <module>dify-api-gateway</module>
+        <module>dify-eureka-server</module>
+        <module>dify-user-service</module>
+        <module>dify-prompt-engine</module>
+        <module>dify-workflow-service</module>
+    </modules>
+    <version>1.0</version>
+    <description>30天Java实现类Dify智能AI平台</description>
+
+    <!-- Spring Boot 父依赖 -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.18</version>
+        <relativePath/>
+    </parent>
+
+    <!-- 统一版本号管理 -->
+    <properties>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <java.version>1.8</java.version>
+        <washy-dify.version>1.0</washy-dify.version>
+        <spring-cloud.version>2021.0.9</spring-cloud.version>
+        <fastjson.version>2.0.32</fastjson.version>
+        <okhttp.version>4.12.0</okhttp.version>
+        <lombok.version>1.18.30</lombok.version>
+        <micrometer.version>1.9.10</micrometer.version>
+        <hutool-all.version>5.8.25</hutool-all.version>
+        <pdfbox.version>2.0.27</pdfbox.version>
+        <spring-retry.version>1.2.5.RELEASE</spring-retry.version>
+        <validation-api.verison>2.0.1.Final</validation-api.verison>
+        <springfox-swagger2.version>2.9.2</springfox-swagger2.version>
+        <mybatis.version>3.5.3.1</mybatis.version>
+        <mysql.version>8.0.33</mysql.version>
+        <springboot.version>2.7.18</springboot.version>
+        <redisson.version>3.16.8</redisson.version>
+        <alibaba-sentinel.version>2.1.4.RELEASE</alibaba-sentinel.version>
+        <jwt.version>0.11.1</jwt.version>
+        <yaml.version>2.2</yaml.version>
+        <poi.version>5.2.5</poi.version>
+        <commons-io.version>2.15.1</commons-io.version>
+        <junit-jupiter.version>5.8.2</junit-jupiter.version>
+        <junit.version>4.13</junit.version>
+        <mockito.version>4.5.1</mockito.version>
+        <commons-compress.version>1.21</commons-compress.version>
+        <xmlbeans.version>5.1.1</xmlbeans.version>
+        <commons-text.version>1.10.0</commons-text.version>
+        <dataformat-yaml.version>2.15.3</dataformat-yaml.version>
+        <rhino.version>1.7.14</rhino.version>
+    </properties>
+
+    <!-- 全局依赖管理（所有子模块自动继承） -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Cloud -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- 工具类 -->
+            <dependency>
+                <groupId>com.alibaba.fastjson2</groupId>
+                <artifactId>fastjson2</artifactId>
+                <version>${fastjson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${okhttp.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.washy.dify</groupId>
+                <artifactId>dify-common</artifactId>
+                <version>${washy-dify.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.washy.dify</groupId>
+                <artifactId>dify-rag-service</artifactId>
+                <version>${washy-dify.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.washy.dify</groupId>
+                <artifactId>dify-function-service</artifactId>
+                <version>${washy-dify.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.washy.dify</groupId>
+                <artifactId>dify-feign-api</artifactId>
+                <version>${washy-dify.version}</version>
+            </dependency>
+            <!-- 工具类 -->
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>${hutool-all.version}</version>
+            </dependency>
+
+            <!-- PDF解析 -->
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId>
+                <version>${pdfbox.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-scratchpad</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml-full</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+
+            <!-- 模型调用超时 + 重试保护 -->
+            <dependency>
+                <groupId>org.springframework.retry</groupId>
+                <artifactId>spring-retry</artifactId>
+                <version>${spring-retry.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>javax.validation</groupId>
+                <artifactId>validation-api</artifactId>
+                <version>${validation-api.verison}</version>
+            </dependency>
+
+            <!-- swagger2 注解 -->
+            <dependency>
+                <groupId>io.springfox</groupId>
+                <artifactId>springfox-swagger2</artifactId>
+                <version>${springfox-swagger2.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.springfox</groupId>
+                <artifactId>springfox-swagger-ui</artifactId>
+                <version>${springfox-swagger2.version}</version>
+            </dependency>
+
+            <!-- mybatis Agent脚本 -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-boot-starter</artifactId>
+                <version>${mybatis.version}</version>
+            </dependency>
+            <!-- mysql -->
+            <dependency>
+                <groupId>mysql</groupId>
+                <artifactId>mysql-connector-java</artifactId>
+                <version>${mysql.version}</version>
+            </dependency>
+            <!-- JDBC -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-jdbc</artifactId>
+                <version>${springboot.version}</version>
+            </dependency>
+
+            <!-- Redis缓存（对话历史） -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-data-redis</artifactId>
+                <version>${springboot.version}</version>
+            </dependency>
+
+            <!-- 分布式锁 -->
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson</artifactId>
+                <version>${redisson.version}</version>
+            </dependency>
+
+            <!-- Sentinel 限流 -->
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-starter-alibaba-sentinel</artifactId>
+                <version>${alibaba-sentinel.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-sentinel-gateway</artifactId>
+                <version>${alibaba-sentinel.version}</version>
+            </dependency>
+
+            <!-- Validation -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-validation</artifactId>
+                <version>${springboot.version}</version>
+            </dependency>
+
+            <!-- 密码加密 BCrypt -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-security</artifactId>
+                <version>${springboot.version}</version>
+            </dependency>
+
+            <!-- 配置文件注解处理器 -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-configuration-processor</artifactId>
+                <version>${springboot.version}</version>
+            </dependency>
+
+            <!-- JWT -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jwt.version}</version>
+            </dependency>
+
+            <!-- 读取 YAML 配置 -->
+            <dependency>
+                <groupId>org.yaml</groupId>
+                <artifactId>snakeyaml</artifactId>
+                <version>${yaml.version}</version>
+            </dependency>
+
+            <!-- 文件读取 -->
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
+            </dependency>
+
+            <!-- POI依赖的压缩库 -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${commons-compress.version}</version>
+            </dependency>
+
+            <!-- XML处理 -->
+            <dependency>
+                <groupId>org.apache.xmlbeans</groupId>
+                <artifactId>xmlbeans</artifactId>
+                <version>${xmlbeans.version}</version>
+            </dependency>
+
+            <!-- 测试 -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-test</artifactId>
+                <version>${springboot.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${junit-jupiter.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
+                <version>${junit-jupiter.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-api</artifactId>
+                <version>${junit-jupiter.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>${junit.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>${mockito.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-junit-jupiter</artifactId>
+                <version>${mockito.version}</version>
+            </dependency>
+
+            <!-- Apache Commons Text (字符串处理) -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-text</artifactId>
+                <version>${commons-text.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-yaml</artifactId>
+                <version>${dataformat-yaml.version}</version>
+            </dependency>
+
+            <!-- 脚本引擎 -->
+            <dependency>
+                <groupId>org.mozilla</groupId>
+                <artifactId>rhino</artifactId>
+                <version>${rhino.version}</version>
+            </dependency>
+
+        </dependencies>
+    </dependencyManagement>
+    <!-- 全局通用依赖 -->
+    <dependencies>
+        <!-- Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- 监控 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- 通用工具 -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba.fastjson2</groupId>
+            <artifactId>fastjson2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
+    </dependencies>
+</project>

@@ -1,0 +1,18 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: dify-eureka-server
+
+eureka:
+  instance:
+    hostname: dify-eureka-server  # Docker 服务名
+  client:
+    registerWithEureka: false
+    fetchRegistry: false
+    serviceUrl:
+      defaultZone: http://dify-eureka-server:8085/eureka/
+  server:
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 5000

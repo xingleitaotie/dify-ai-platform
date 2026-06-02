@@ -1,0 +1,63 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: dify-llm-service
+  # 数据库配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/agent?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+  # 必须配置！让JdbcTemplate可用
+  jdbc:
+    template:
+      query-timeout: 3
+
+# RAG服务地址（Day4启动的服务）
+rag:
+  service-url: http://localhost:8082
+
+function:
+  service-url: http://localhost:8083
+
+# Dify LLM 配置（支持所有主流模型，无需改代码）
+dify:
+  llm:
+    # 模型类型：ollama/openai/qwen/ernie/spark/zhipu/modelScope
+    type: modelScope
+    # 模型名称
+    model-name: unsloth/Qwen3-8B-128K-GGUF
+    # 接口地址
+    base-url: https://ms-ens-e4117465-e54c.api-inference.modelscope.cn/v1
+    # API Key（云模型必填）
+    api-key: ms-190914bc-6125-4840-9347-8366e74399bc     # 从环境变量读取，不留空
+    # 密钥（部分模型需要）
+    secret:
+    # 最大token
+    max-tokens: 2048
+    # 温度
+    temperature: 0.7
+    # 超时时间
+    timeout: 60
+
+# Feign 超时配置（解决 Read timed out）
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 300000    # 5分钟
+        readTimeout: 1200000      # 20分钟！足够模型推理
+
+ribbon:
+  ReadTimeout: 60000
+  ConnectTimeout: 30000
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8085/eureka/  # 注册到中心
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}

@@ -1,0 +1,49 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: dify-api-gateway
+  main:
+    web-application-type: reactive
+    allow-bean-definition-overriding: true
+  # 网关配置
+  cloud:
+    gateway:
+      # 关闭服务发现默认路由，使用自定义路由
+      discovery:
+        locator:
+          enabled: false
+          lower-case-service-id: true
+      # SSE流式配置
+      httpclient:
+        connect-timeout: 60000
+        response-timeout: 300000
+        pool:
+          max-idle-time: 300000
+        wiretap: true
+
+    # Sentinel配置
+    sentinel:
+      enabled: true
+      filter:
+        enabled: false
+      gateway:
+        enabled: true
+      transport:
+        dashboard: localhost:8088
+        port: 8719
+
+# Eureka 注册中心地址（Docker 服务名）
+eureka:
+  client:
+    service-url:
+      defaultZone: http://dify-eureka-server:8085/eureka/
+  instance:
+    prefer-ip-address: false
+    hostname: dify-api-gateway
+    instance-id: ${spring.application.name}:${server.port}
+
+jwt:
+  secret: abcdefghijklmnopqrstuvwxyz123456
+  expire: 86400  # 24小时

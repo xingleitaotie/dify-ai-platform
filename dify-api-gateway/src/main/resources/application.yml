@@ -1,0 +1,57 @@
+server:
+  port: 9000
+  tomcat:
+    max-http-form-post-size: -1
+
+spring:
+  application:
+    name: dify-api-gateway
+  main:
+    web-application-type: reactive  # 强制使用响应式，解决冲突
+  allow-bean-definition-overriding: true
+
+  # 网关配置
+  cloud:
+    gateway:
+      # 关闭服务发现默认路由，使用自定义路由
+      discovery:
+        locator:
+          enabled: false
+          lower-case-service-id: true
+      # SSE流式配置
+      httpclient:
+        connect-timeout: 60000
+        response-timeout: 600000
+        pool:
+          max-idle-time: 600000
+        wiretap: true
+
+    # Sentinel配置
+    sentinel:
+      enabled: true
+      filter:
+        enabled: false
+      gateway:
+        enabled: true
+      transport:
+        dashboard: localhost:8088
+        port: 8719
+
+# 日志配置
+logging:
+  level:
+    org.springframework.cloud.gateway: info
+    com.dify.gateway: info
+    reactor.netty: info
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8085/eureka/  # 注册到中心
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+jwt:
+  secret: my-super-secret-key-64bytes-long-abcdefghijklmnopqrstuvwxyz123456
+  expire: 86400

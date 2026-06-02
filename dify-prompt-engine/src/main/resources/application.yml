@@ -1,0 +1,72 @@
+server:
+  port: 8087
+spring:
+  application:
+    name: dify-prompt-engine
+  mvc:
+    throw-exception-if-no-handler-found: true
+    web:
+      resources:
+        static-locations: classpath:/static/
+        add-mappings: true
+  # 数据库配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/agent?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+  # 必须配置！让JdbcTemplate可用
+  jdbc:
+    template:
+      query-timeout: 3
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.dify.prompt.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8085/eureka/  # 注册到中心
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+# dify-prompt-engine 配置
+dify:
+  prompt:
+    # 模板加载路径
+    template-path: prompts/
+    # 模板格式
+    template-format: yaml
+    # 启用缓存
+    enable-cache: true
+    # 最大内容长度
+    max-content-length: 2000
+    # 默认温度
+    default-temperature: 0.3
+    version: # 当前使用的版本
+          active-versions:
+            document.summary: v2.1.0
+            rag.qa: v1.2.0
+            function.calling: v1.3.0
+            agent.decision: v1.1.0
+            agent.final.answer: v1.2.0
+          # A/B 测试配置
+          enable-ab-test: false
+
+# Feign 超时配置（解决 Read timed out）
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 600000    # 10分钟
+        readTimeout: 1200000      # 20分钟！足够模型推理
+
+logging:
+  level:
+    com.dify.prompt: DEBUG

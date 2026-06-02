@@ -1,0 +1,49 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: dify-rag-service
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+# 容器内 Ollama 向量模型接口
+ollama:
+  embedding:
+    # url: http://ollama:11434/v1/embeddings 不使用本地的向量模型时打开
+    url: http://host.docker.internal:11434/v1/embeddings
+    model: nomic-embed-text
+
+# RAG 容器配置（Chroma、Ollama 全部用容器服务名）
+dify:
+  rag:
+    embedding-type: OLLAMA
+    vector-store-type: CHROMA
+    embedding:
+      # ollama-base-url: http://ollama:11434 不使用本地ollama时打开
+      ollama-base-url: http://host.docker.internal:11434
+      ollama-model: nomic-embed-text
+      wenxin-api-key: xxx
+      wenxin-secret-key: xxx
+    vector-store:
+      chroma-host: chroma               # 容器内网 Chroma
+      chroma-port: 8000
+      chroma-tenant: default_tenant
+      chroma-database: default_database
+      chroma-collection: dify_knowledge_base
+      milvus-host: localhost
+      milvus-port: 19530
+
+logging:
+  level:
+    com.dify: info
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://dify-eureka-server:8085/eureka/  # 注册到中心
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
