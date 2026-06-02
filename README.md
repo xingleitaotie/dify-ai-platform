@@ -84,7 +84,7 @@ mvn spring-boot:run
 1. 项目大模型使用的是魔塔社区的免费LLM
 2. 向量大模型是基于本地ollama搭建的nomic-embed-text
 3. 工作流目前已经测试了LLM和RAG节点，**注意**输入必须是query，下一节点输出字段必须是{{input.query}}，后面的节点可以根据大模型输出选择
-4. 目前实现了大模型对话、agent、rag、prompt、function等功能
+4. 目前实现了大模型对话、agent、rag、prompt、function、workflow（部分功能）等功能
 5. rag工程可以实现对上传的文档按照段落或者章节进行分块，同时涉及的图片目前是保存到本地文件夹，后期可以放到对象存储中，对于涉及的表格，是转化成md格式进行存储
 
 # 常见问题
