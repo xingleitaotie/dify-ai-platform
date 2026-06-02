@@ -1,3 +1,7 @@
+# Compiled files
+**/target/
+*.class
+
 # IDE files
 .idea/
 *.iml
@@ -9,20 +13,52 @@
 .vscode/
 .mvn/
 
+# Log files
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
 # Node modules
 node_modules/
 dify-web/node_modules/
 dify-web/dist/
 dify-web/.vite/
 dify-web/.cache
-dify-web/*.log
+dify-web/.vitepress/cache
+dify-web/npm-debug.log*
+dify-web/yarn-debug.log*
+dify-web/yarn-error.log*
+dify-web/package-lock.json
 
-# Build outputs
-dist/
-build/
-target/
-*.class
+# Docker
+docker/data/
+docker/logs/
+*.pid
 
-# OS files
-.DS_Store
+# Temp files
+*.tmp
+*.temp
+*.swp
+*~
+*.bak
+*.backup
+
+# Test outputs
+test-output/
+surefire-reports/
+
+# Heap dumps
+*.hprof
+*.heap
+
+# System files
 Thumbs.db
+.DS_Store
