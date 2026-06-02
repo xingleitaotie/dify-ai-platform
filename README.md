@@ -51,8 +51,76 @@ Dify AI Platform 是一个基于 Java  Spring Cloud 架构的 AI 应用开发平
 - Docker & Docker Compose（可选）
 - Chroma 向量数据库（或修改配置使用其他）
 
-### 2. 数据库初始化
+### 2. 方式一 :  本地运行（按顺序启动）
 
-```bash
-# 创建数据库 dify_platform
-mysql -u root -p < sql/ddl.sql
+#### 1. 安装依赖
+mvn clean install
+
+#### 2. 启动Eureka服务注册中心
+cd dify-eureka-service
+mvn spring-boot:run
+
+#### 3. 启动其他服务（按需启动）
+cd ../dify-api-gateway && mvn spring-boot:run
+cd ../dify-user-service && mvn spring-boot:run
+cd ../dify-llm-service && mvn spring-boot:run
+cd ../dify-rag-service && mvn spring-boot:run
+cd ../dify-function-service && mvn spring-boot:run
+cd ../dify-agent-service && mvn spring-boot:run
+cd ../dify-prompt-engine && mvn spring-boot:run
+cd ../dify-workflow-service && mvn spring-boot:run
+
+### 3. 方式三 ：Docker Compose一键部署
+- cd dify-ai-platform
+- mvn clean
+- cd docker
+- docker-compose build --no-cache
+- docker-compose up -d
+- docker-compose logs -f
+
+# 项目情况及功能说明
+1. 项目大模型使用的是魔塔社区的免费LLM
+2. 向量大模型是基于本地ollama搭建的nomic-embed-text
+3. 工作流目前已经测试了LLM和RAG节点，**注意**输入必须是query，下一节点输出字段必须是{{input.query}}，后面的节点可以根据大模型输出选择
+4. 目前实现了大模型对话、agent、rag、prompt、function等功能
+5. rag工程可以实现对上传的文档按照段落或者章节进行分块，同时涉及的图片目前是保存到本地文件夹，后期可以放到对象存储中，对于涉及的表格，是转化成md格式进行存储
+
+# 常见问题
+* Q: 服务启动失败，提示数据库连接错误？
+* A: 检查MySQL是否启动，确认application.yml中的数据库配置正确。
+
+* Q: 接口返回401未授权？
+* A: 检查请求头是否携带token，或确认接口是否在网关白名单中。
+
+* Q: 流式对话没有响应？
+* A: 确认前端EventSource配置正确，后端SseEmitter实现无误。
+
+* Q: RAG检索无结果？
+* A: 确认Chroma向量库已启动，文档已上传并完成向量化。
+
+# 后续规划
+1. 多租户支持
+
+2. 工作流编排
+
+3. 模型管理平台
+
+4. 更多向量数据库支持（Pinecone、Milvus）
+
+5. 监控告警系统
+
+6. API速率限制增强
+
+# 贡献指南
+- 欢迎提交Issue和Pull Request。
+
+# 许可证
+MIT License
+
+# 联系方式
+项目地址：https://github.com/xingleitaotie/dify-ai-platform.git
+
+问题反馈：hellowangxu@163.com
+
+**注意**：请确保在使用前配置好大模型API密钥和向量数据库连接。
+
