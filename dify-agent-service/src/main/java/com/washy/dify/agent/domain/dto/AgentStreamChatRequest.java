@@ -21,4 +21,6 @@ public class AgentStreamChatRequest {
      * 不传则使用默认会话
      */
     private String sessionId;
+
+    private String modelConfigId;
 }

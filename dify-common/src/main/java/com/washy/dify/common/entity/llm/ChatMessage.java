@@ -73,6 +73,14 @@ public class ChatMessage implements Serializable {
                 .build();
     }
 
+    public static ChatMessage tool(String content) {
+        return ChatMessage.builder()
+                .role("tool")
+                .content(content)
+                .timestamp(System.currentTimeMillis())
+                .build();
+    }
+
     /**
      * 函数调用定义
      */

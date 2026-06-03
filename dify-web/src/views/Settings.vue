@@ -17,9 +17,6 @@
                   <el-icon><Plus /></el-icon>
                   新建配置
                 </el-button>
-                <el-button type="primary" size="small" @click="testConnection" :loading="testing">
-                  测试当前连接
-                </el-button>
               </div>
             </div>
           </template>

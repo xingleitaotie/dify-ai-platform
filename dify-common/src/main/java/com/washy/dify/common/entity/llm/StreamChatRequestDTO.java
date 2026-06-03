@@ -2,6 +2,7 @@ package com.washy.dify.common.entity.llm;
 
 import lombok.Data;
 import javax.validation.constraints.NotBlank;
+import java.util.List;
 
 /**
  * 流式对话请求DTO
@@ -21,4 +22,6 @@ public class StreamChatRequestDTO {
     private Double temperature;      // 温度参数（覆盖默认值）
     
     private Integer maxTokens;       // 最大token（覆盖默认值）
+
+    private List<ChatMessage> messages;
 }

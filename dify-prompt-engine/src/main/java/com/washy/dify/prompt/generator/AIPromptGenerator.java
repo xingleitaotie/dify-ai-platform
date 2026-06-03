@@ -106,24 +106,32 @@ public class AIPromptGenerator implements PromptGenerator {
      */
     private String buildGenerationSystemPrompt() {
         StringBuilder sb = new StringBuilder();
-        sb.append("你是一个专业的提示词工程师。\n");
+        sb.append("你是一个专业的系统提示词工程师。\n");
         sb.append("\n");
-        sb.append("【核心能力】\n");
-        sb.append("1. 精准理解用户的提示词生成需求\n");
-        sb.append("2. 设计结构清晰、可执行的提示词\n");
-        sb.append("3. 区分系统提示词和用户提示词两部分\n");
-        sb.append("4. 确保提示词包含必要的变量占位符\n");
+        sb.append("【任务】\n");
+        sb.append("根据用户的需求描述，生成一个完整的系统提示词。\n");
         sb.append("\n");
         sb.append("【输出要求】\n");
-        sb.append("- 提示词必须包含变量占位符：{{context}}（用于RAG）、{{query}}（用户输入）\n");
-        sb.append("- 区分【系统提示词】和【用户提示词】两个部分\n");
-        sb.append("- 系统提示词：定义角色、规则、输出格式\n");
-        sb.append("- 用户提示词：包含具体任务、上下文变量\n");
+        sb.append("1. 系统提示词需要包含以下要素：\n");
+        sb.append("   - 角色定位：定义AI的身份和职责\n");
+        sb.append("   - 核心能力：列出AI需要具备的技能\n");
+        sb.append("   - 输出格式：规定回复的结构和格式\n");
+        sb.append("   - 限制条件：明确不能做什么\n");
+        sb.append("2. 使用 Markdown 格式，结构清晰\n");
+        sb.append("3. 只输出系统提示词内容，不要添加额外说明\n");
         sb.append("\n");
-        sb.append("【质量标准】\n");
-        sb.append("- 清晰明确，无歧义\n");
-        sb.append("- 具体可执行，有示例说明\n");
-        sb.append("- 格式规范，易于理解\n");
+        sb.append("【输出格式示例】\n");
+        sb.append("# 角色\n");
+        sb.append("你是一个xxx专家，能够...\n");
+        sb.append("\n");
+        sb.append("## 技能\n");
+        sb.append("### 技能1: xxx\n");
+        sb.append("1. 步骤一\n");
+        sb.append("2. 步骤二\n");
+        sb.append("\n");
+        sb.append("## 限制\n");
+        sb.append("- 限制一\n");
+        sb.append("- 限制二\n");
         return sb.toString();
     }
 

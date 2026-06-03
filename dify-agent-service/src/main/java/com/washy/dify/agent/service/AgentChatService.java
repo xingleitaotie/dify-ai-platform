@@ -1,14 +1,11 @@
 package com.washy.dify.agent.service;
 
-import com.alibaba.fastjson2.JSON;
 import com.washy.dify.agent.domain.AgentConfig;
 import com.washy.dify.agent.domain.AgentKbBind;
 import com.washy.dify.agent.domain.AgentToolBind;
 import com.washy.dify.agent.domain.dto.AgentExecuteRequest;
-import com.washy.dify.agent.domain.dto.ToolCallRequest;
 import com.washy.dify.agent.util.AgentMessageBuilder;
 import com.washy.dify.common.entity.function.FunctionCallRequest;
-import com.washy.dify.common.entity.function.FunctionExecuteResult;
 import com.washy.dify.common.entity.llm.ChatMessage;
 import com.washy.dify.common.entity.llm.ChatRequestDTO;
 import com.washy.dify.common.exception.GlobalExceptionHandler;
@@ -109,31 +106,11 @@ public class AgentChatService {
         dto.setMessage(prompt);
         Result<String> llmFuncResult = llmFeign.functionChat(dto);
         String llmDecision = llmFuncResult.getData();
-        log.info("【7】LLM决策返回：{}", llmDecision);
 
-        // 7. 解析是否需要调用工具
-        ToolCallRequest toolCall = null;
-        try {
-            toolCall = JSON.parseObject(llmDecision, ToolCallRequest.class);
-        } catch (Exception e) {
-            log.info("【8】无需调用工具，直接返回回答");
-            return llmDecision;
-        }
-
-        // 8. 执行工具
-        log.info("【8】开始执行工具：{}", toolCall.getToolName());
-
-        // 解析函数调用参数
-        FunctionCallRequest functionRequest = parseFunctionCall(toolCall.getToolName(),toolCall.getParameters());
-        // 执行函数
-        Result<FunctionExecuteResult> funcResult = functionFeign.invokeFunction(functionRequest);
-
-
-        Object toolResult = funcResult.getData();
-        log.info("【9】工具执行结果：{}", toolResult);
+        log.info("【9】工具执行结果：{}", llmDecision);
 
         // 9. 最终对话：整合结果给LLM生成答案
-        List<ChatMessage> messages = messageBuilder.buildForAgent(agent, query, ragContext, toolResult);
+        List<ChatMessage> messages = messageBuilder.buildForAgent(agent, query, ragContext, llmDecision);
         ChatRequestDTO requestDTO  = new ChatRequestDTO();
         requestDTO.setMessages(messages);
         Result<String> finalAnswer = llmFeign.chat(requestDTO);

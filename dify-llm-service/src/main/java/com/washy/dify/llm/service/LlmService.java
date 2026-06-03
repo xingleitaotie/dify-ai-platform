@@ -149,8 +149,12 @@ public class LlmService {
 
             // 2. 构建给大模型的 Prompt
             List<ChatMessage> messages = new ArrayList<>();
-            messages.add(ChatMessage.system(buildFunctionSystemPrompt(functionList)));
-            messages.add(ChatMessage.user(buildFunctionUserPrompt(request.getMessage())));
+            if(request.getMessages() != null && !request.getMessages().isEmpty()){
+                messages = request.getMessages();
+            }else{
+                messages.add(ChatMessage.system(buildFunctionSystemPrompt(functionList)));
+                messages.add(ChatMessage.user(buildFunctionUserPrompt(request.getMessage())));
+            }
 
             // 3. 调用大模型
             String llmRawResponse = client.chat(messages);
@@ -158,10 +162,32 @@ public class LlmService {
 
             // 4. 解析模型返回，判断是否需要调用函数
             if (isFunctionCallResponse(llmRawResponse)) {
-                FunctionCallRequest functionRequest = parseFunctionCall(llmRawResponse);
-                Result<FunctionExecuteResult> functionResultResult = functionFeignClient.invokeFunction(functionRequest);
-                FunctionExecuteResult functionResult = functionResultResult.getData();
-                return buildFinalAnswer(request.getMessage(), functionResult, client);
+                List<FunctionCallRequest> functions = parseFunctionCall(llmRawResponse);
+                List<FunctionExecuteResult> allResults = new ArrayList<>();
+
+                for (FunctionCallRequest functionCallRequest : functions) {
+                    Result<FunctionExecuteResult> result = functionFeignClient.invokeFunction(functionCallRequest);
+                    if (result != null && result.getCode() == 200) {
+                        allResults.add(result.getData());
+                    } else {
+                        // 调用失败时也记录，便于调试
+                        FunctionExecuteResult errorResult = new FunctionExecuteResult();
+                        errorResult.setSuccess(false);
+                        errorResult.setFunctionName(functionCallRequest.getFunctionName());
+                        errorResult.setErrorMsg(result != null ? result.getMsg() : "调用失败");
+                        allResults.add(errorResult);
+                    }
+                }
+
+                // 根据结果数量格式化输出
+                if (allResults.size() == 1) {
+                    // 单个函数：直接输出数据
+                    FunctionExecuteResult singleResult = allResults.get(0);
+                    llmRawResponse = singleResult.getData() != null ? singleResult.getData().toString() : "{}";
+                } else {
+                    // 多个函数：输出JSON数组，包含完整信息
+                    llmRawResponse = JSON.toJSONString(allResults);
+                }
             }
 
             return llmRawResponse;
@@ -182,8 +208,13 @@ public class LlmService {
 
         llmClientFactory.getThreadPoolExecutor().execute(() -> {
             try {
-                List<ChatMessage> messages = buildChatMessages(sessionId, request.getMessage());
-
+                List<ChatMessage> messages = null;
+                if(null != request.getMessages() && !request.getMessages().isEmpty()){
+                    messages = request.getMessages();
+                }
+                else {
+                    messages = buildChatMessages(sessionId, request.getMessage());
+                }
                 // 使用数组包装以突破 final 限制
                 StringBuilder buffer = new StringBuilder();
                 int[] lastSendLength = {0};
@@ -338,13 +369,20 @@ public class LlmService {
         return hasFunctionKey && !hasCodeFeatures;
     }
 
-    private FunctionCallRequest parseFunctionCall(String response) {
+    private List<FunctionCallRequest> parseFunctionCall(String response) {
         try {
-            JSONObject json = JSON.parseObject(response.trim());
-            FunctionCallRequest request = new FunctionCallRequest();
-            request.setFunctionName(json.getString("functionName"));
-            request.setParameters(json.getObject("params", Object.class));
-            return request;
+            String[] lines = response.trim().split("\n");
+            List<FunctionCallRequest> requests = new ArrayList<>();
+
+            for (String line : lines) {
+                if (line.trim().isEmpty()) continue;
+                JSONObject json = JSON.parseObject(line.trim());
+                FunctionCallRequest request = new FunctionCallRequest();
+                request.setFunctionName(json.getString("functionName"));
+                request.setParameters(json.getObject("params", Object.class));
+                requests.add(request);
+            }
+            return requests;
         } catch (Exception e) {
             throw new GlobalExceptionHandler("解析函数调用失败：" + e.getMessage());
         }
