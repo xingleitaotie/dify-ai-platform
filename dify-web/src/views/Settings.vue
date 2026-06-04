@@ -10,11 +10,15 @@
               <span>模型参数配置</span>
               <div class="header-buttons">
                 <el-button type="success" size="small" @click="loadModelConfigs" :loading="configsLoading">
-                  <el-icon><Refresh /></el-icon>
+                  <el-icon>
+                    <Refresh/>
+                  </el-icon>
                   刷新列表
                 </el-button>
                 <el-button type="primary" size="small" @click="showAddDialog">
-                  <el-icon><Plus /></el-icon>
+                  <el-icon>
+                    <Plus/>
+                  </el-icon>
                   新建配置
                 </el-button>
               </div>
@@ -22,14 +26,16 @@
           </template>
 
           <!-- 配置列表 -->
+
           <el-table
               :data="configList"
               stripe
               v-loading="configsLoading"
-              style="margin-bottom: 20px"
+              style="width: 100%"
               :header-cell-style="{ background: '#0f1228', color: '#ffffff', fontWeight: '600' }"
           >
-            <el-table-column prop="configName" label="配置名称" min-width="140" show-overflow-tooltip />
+            <!-- 保持原有列定义，但给操作列设置固定宽度 -->
+            <el-table-column prop="configName" label="配置名称" width="150" show-overflow-tooltip/>
 
             <el-table-column prop="type" label="模型类型" width="110" align="center">
               <template #default="{ row }">
@@ -37,9 +43,9 @@
               </template>
             </el-table-column>
 
-            <el-table-column prop="modelName" label="模型名称" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="modelName" label="模型名称" width="200" show-overflow-tooltip/>
 
-            <el-table-column prop="baseUrl" label="API地址" min-width="200" show-overflow-tooltip>
+            <el-table-column prop="baseUrl" label="API地址" min-width="250" show-overflow-tooltip>
               <template #default="{ row }">
                 <span class="api-url">{{ row.baseUrl }}</span>
               </template>
@@ -71,7 +77,8 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="操作" width="220" fixed="right" align="center">
+            <!-- 操作列固定宽度，不再使用 fixed="right" -->
+            <el-table-column label="操作" width="240" align="center">
               <template #default="{ row }">
                 <div class="action-buttons">
                   <el-button
@@ -80,7 +87,9 @@
                       size="small"
                       @click="showEditDialog(row)"
                   >
-                    <el-icon><Edit /></el-icon>
+                    <el-icon>
+                      <Edit/>
+                    </el-icon>
                     <span>编辑</span>
                   </el-button>
                   <el-button
@@ -90,7 +99,9 @@
                       @click="switchToConfig(row)"
                       :disabled="row.isDefault === 1"
                   >
-                    <el-icon><Switch /></el-icon>
+                    <el-icon>
+                      <Switch/>
+                    </el-icon>
                     <span>切换</span>
                   </el-button>
                   <el-button
@@ -100,7 +111,9 @@
                       @click="deleteConfig(row)"
                       :disabled="row.isDefault === 1"
                   >
-                    <el-icon><Delete /></el-icon>
+                    <el-icon>
+                      <Delete/>
+                    </el-icon>
                     <span>删除</span>
                   </el-button>
                 </div>
@@ -108,8 +121,15 @@
             </el-table-column>
           </el-table>
 
-          <!-- 分页 -->
+
+          <!-- 添加空状态提示 -->
+          <div v-if="!configsLoading && configList.length === 0" class="empty-state">
+            <el-empty description="暂无配置数据，点击上方「新建配置」添加"/>
+          </div>
+
+          <!-- 分页 - 只在有数据时显示 -->
           <el-pagination
+              v-if="total > 0"
               v-model:current-page="pageParams.pageNum"
               v-model:page-size="pageParams.pageSize"
               :page-sizes="[5, 10, 20, 50]"
@@ -144,7 +164,7 @@
 
       <!-- 其他 Tab 保持不变 -->
       <el-tab-pane label="Prompt模板" name="prompt">
-        <PromptTemplate />
+        <PromptTemplate/>
       </el-tab-pane>
 
       <el-tab-pane label="工具管理" name="tools">
@@ -153,8 +173,8 @@
             <span>已注册函数工具</span>
           </template>
           <el-table :data="tools" stripe v-loading="toolsLoading">
-            <el-table-column prop="name" label="工具名称" width="180" />
-            <el-table-column prop="desc" label="描述" show-overflow-tooltip />
+            <el-table-column prop="name" label="工具名称" width="180"/>
+            <el-table-column prop="desc" label="描述" show-overflow-tooltip/>
             <el-table-column prop="params" label="参数" width="200">
               <template #default="{ row }">
                 <el-tag v-for="param in row.params" :key="param" size="small" style="margin: 2px">
@@ -165,7 +185,7 @@
             </el-table-column>
             <el-table-column label="状态" width="100">
               <template #default="{ row }">
-                <el-switch v-model="row.enabled" @change="toggleTool(row)" />
+                <el-switch v-model="row.enabled" @change="toggleTool(row)"/>
               </template>
             </el-table-column>
           </el-table>
@@ -187,8 +207,8 @@
             </el-form-item>
             <el-form-item label="语言">
               <el-select v-model="systemSettings.language">
-                <el-option label="中文" value="zh-CN" />
-                <el-option label="English" value="en-US" />
+                <el-option label="中文" value="zh-CN"/>
+                <el-option label="English" value="en-US"/>
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -202,13 +222,15 @@
         <el-card class="settings-card">
           <div class="about-content">
             <div class="logo">
-              <el-icon :size="48"><DataAnalysis /></el-icon>
+              <el-icon :size="48">
+                <DataAnalysis/>
+              </el-icon>
               <h2>Dify AI Platform</h2>
             </div>
             <p>版本: 1.0.0</p>
             <p>智能AI应用开发平台</p>
             <p>支持大模型对话、知识库RAG、Agent编排、工作流、Function Calling等功能</p>
-            <el-divider />
+            <el-divider/>
             <h3>技术栈</h3>
             <div class="tech-stack">
               <el-tag>Vue 3</el-tag>
@@ -217,7 +239,7 @@
               <el-tag>Spring Boot</el-tag>
               <el-tag>ModelScope</el-tag>
             </div>
-            <el-divider />
+            <el-divider/>
             <p>© 2024 Dify AI Platform. All rights reserved.</p>
           </div>
         </el-card>
@@ -233,7 +255,7 @@
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="120px">
         <el-form-item label="配置名称" prop="configName">
-          <el-input v-model="formData.configName" placeholder="请输入配置名称" />
+          <el-input v-model="formData.configName" placeholder="请输入配置名称"/>
         </el-form-item>
 
         <el-form-item label="模型类型" prop="type">
@@ -248,12 +270,12 @@
         </el-form-item>
 
         <el-form-item label="模型名称" prop="modelName">
-          <el-input v-model="formData.modelName" placeholder="请输入模型名称" />
+          <el-input v-model="formData.modelName" placeholder="请输入模型名称"/>
           <div class="form-tip">{{ getModelNameTip(formData.type) }}</div>
         </el-form-item>
 
         <el-form-item label="API地址" prop="baseUrl">
-          <el-input v-model="formData.baseUrl" :placeholder="getBaseUrlPlaceholder(formData.type)" />
+          <el-input v-model="formData.baseUrl" :placeholder="getBaseUrlPlaceholder(formData.type)"/>
           <div class="form-tip">{{ getBaseUrlTip(formData.type) }}</div>
         </el-form-item>
 
@@ -270,26 +292,26 @@
 
         <el-form-item label="Temperature" prop="temperature">
           <div class="slider-container">
-            <el-slider v-model="formData.temperature" :min="0" :max="2" :step="0.1" style="width: 300px" />
+            <el-slider v-model="formData.temperature" :min="0" :max="2" :step="0.1" style="width: 300px"/>
             <span class="slider-value">{{ formData.temperature }}</span>
           </div>
         </el-form-item>
 
         <el-form-item label="Max Tokens" prop="maxTokens">
-          <el-input-number v-model="formData.maxTokens" :min="1" :max="8192" :step="100" />
+          <el-input-number v-model="formData.maxTokens" :min="1" :max="8192" :step="100"/>
         </el-form-item>
 
         <el-form-item label="超时时间(秒)" prop="timeout">
-          <el-input-number v-model="formData.timeout" :min="30" :max="300" :step="10" />
+          <el-input-number v-model="formData.timeout" :min="30" :max="300" :step="10"/>
         </el-form-item>
 
         <el-form-item label="设为默认" prop="isDefault">
-          <el-switch v-model="formData.isDefault" :active-value="1" :inactive-value="0" />
+          <el-switch v-model="formData.isDefault" :active-value="1" :inactive-value="0"/>
           <span class="form-tip" style="margin-left: 8px">设为默认后，新对话将使用此配置</span>
         </el-form-item>
 
         <el-form-item label="状态" prop="status">
-          <el-switch v-model="formData.status" :active-value="1" :inactive-value="0" />
+          <el-switch v-model="formData.status" :active-value="1" :inactive-value="0"/>
         </el-form-item>
       </el-form>
 
@@ -307,11 +329,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { DataAnalysis, Refresh, Plus } from '@element-plus/icons-vue'
-import { functionApi } from '@/api/function'
-import { modelConfigApi } from '@/api/chat'
+import {ref, reactive, onMounted} from 'vue'
+import {ElMessage, ElMessageBox} from 'element-plus'
+import {DataAnalysis, Refresh, Plus} from '@element-plus/icons-vue'
+import {functionApi} from '@/api/function'
+import {modelConfigApi} from '@/api/chat'
 import PromptTemplate from './components/PromptTemplate.vue'
 
 const activeTab = ref('model')
@@ -366,21 +388,21 @@ const formData = reactive({
 
 // 模型类型列表
 const modelTypes = ref([
-  { value: 'ollama', label: 'Ollama' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'modelScope', label: 'ModelScope' },
-  { value: 'qwen', label: '通义千问' },
-  { value: 'ernie', label: '文心一言' },
-  { value: 'spark', label: '讯飞星火' },
-  { value: 'zhipu', label: '智谱AI' }
+  {value: 'ollama', label: 'Ollama'},
+  {value: 'openai', label: 'OpenAI'},
+  {value: 'modelScope', label: 'ModelScope'},
+  {value: 'qwen', label: '通义千问'},
+  {value: 'ernie', label: '文心一言'},
+  {value: 'spark', label: '讯飞星火'},
+  {value: 'zhipu', label: '智谱AI'}
 ])
 
 // 表单验证规则
 const formRules = {
-  configName: [{ required: true, message: '请输入配置名称', trigger: 'blur' }],
-  type: [{ required: true, message: '请选择模型类型', trigger: 'change' }],
-  modelName: [{ required: true, message: '请输入模型名称', trigger: 'blur' }],
-  baseUrl: [{ required: true, message: '请输入API地址', trigger: 'blur' }]
+  configName: [{required: true, message: '请输入配置名称', trigger: 'blur'}],
+  type: [{required: true, message: '请选择模型类型', trigger: 'change'}],
+  modelName: [{required: true, message: '请输入模型名称', trigger: 'blur'}],
+  baseUrl: [{required: true, message: '请输入API地址', trigger: 'blur'}]
 }
 
 // 系统设置
@@ -457,13 +479,48 @@ const loadModelConfigs = async () => {
         null,
         1
     )
+    console.log('API响应数据:', res) // 添加日志查看实际返回结构
+
     if (res.code === 200 && res.data) {
-      configList.value = res.data.records || []
-      total.value = res.data.total || 0
+      // 兼容多种返回格式
+      let records = []
+      let totalCount = 0
+
+      if (Array.isArray(res.data)) {
+        // 如果直接返回数组
+        records = res.data
+        totalCount = res.data.length
+      } else if (res.data.records) {
+        // 标准分页格式
+        records = res.data.records
+        totalCount = res.data.total || 0
+      } else if (res.data.list) {
+        // 其他格式
+        records = res.data.list
+        totalCount = res.data.total || res.data.totalCount || 0
+      } else if (res.data.content) {
+        // Spring Boot 格式
+        records = res.data.content
+        totalCount = res.data.totalElements || 0
+      }
+
+      configList.value = records
+      total.value = totalCount
+
+      // 如果还是没有数据，检查后端接口
+      if (totalCount === 0) {
+        console.warn('未获取到配置数据，请检查后端接口返回格式')
+      }
+    } else {
+      console.warn('接口返回异常:', res)
+      configList.value = []
+      total.value = 0
     }
   } catch (error) {
     console.error('加载配置列表失败:', error)
-    ElMessage.error('加载配置列表失败')
+    ElMessage.error('加载配置列表失败：' + (error.message || '未知错误'))
+    configList.value = []
+    total.value = 0
   } finally {
     configsLoading.value = false
   }
@@ -502,7 +559,7 @@ const testConnection = async () => {
 const testConfigBeforeSave = async () => {
   testingConfig.value = true
   try {
-    const testData = { ...formData }
+    const testData = {...formData}
     const res = await modelConfigApi.testConfig(testData)
     if (res.code === 200 && res.data === true) {
       ElMessage.success('连接测试成功')
@@ -729,7 +786,8 @@ onMounted(() => {
   if (saved) {
     try {
       Object.assign(systemSettings, JSON.parse(saved))
-    } catch (e) {}
+    } catch (e) {
+    }
   }
 })
 </script>
@@ -803,11 +861,6 @@ onMounted(() => {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
-.settings-card :deep(.el-card__header) {
-  background: #0f1228;
-  border-bottom: 1px solid #2a2f4a;
-  padding: 16px 20px;
-}
 
 .settings-card :deep(.el-card__header .card-header) {
   color: #ffffff;
@@ -1328,31 +1381,16 @@ onMounted(() => {
 
 /* ========== 响应式 ========== */
 @media (max-width: 768px) {
-  .settings {
-    padding: 16px;
+  .action-buttons {
+    gap: 4px;
   }
 
-  .settings h2 {
-    font-size: 24px;
+  .action-buttons .el-button {
+    padding: 4px 6px;
   }
 
-  .card-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .header-buttons {
-    width: 100%;
-  }
-
-  .header-buttons .el-button {
-    flex: 1;
-  }
-
-  .settings-card :deep(.el-table__header th),
-  .settings-card :deep(.el-table__body td) {
-    font-size: 12px;
-    padding: 8px 0;
+  .action-buttons .el-button span {
+    font-size: 11px;
   }
 }
 
@@ -1392,11 +1430,14 @@ onMounted(() => {
 }
 
 /* ========== 操作列按钮样式优化 ========== */
+/* 操作按钮样式优化 - 确保不换行 */
 .action-buttons {
   display: flex;
   gap: 8px;
   justify-content: center;
-  flex-wrap: nowrap;
+  align-items: center;
+  flex-wrap: nowrap; /* 强制不换行 */
+  white-space: nowrap;
 }
 
 .action-buttons .el-button {
@@ -1405,6 +1446,8 @@ onMounted(() => {
   font-weight: 500;
   transition: all 0.2s ease;
   border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0; /* 防止按钮被压缩 */
 }
 
 /* 编辑按钮 - 亮蓝色 */
@@ -1498,15 +1541,23 @@ onMounted(() => {
 }
 
 /* 添加的修复样式 */
-.el-card__header {
-  background: #0f1228 !important;
-  border-bottom: 1px solid #2a2f4a !important;
-}
-
 .el-card__header span,
 .el-card__header .card-header span {
   color: #ffffff !important;
   font-weight: 600 !important;
+}
+
+/* 修改为更精确的选择器 */
+.settings-card .el-card__header {
+  background: #0f1228 !important;
+  border-bottom: 1px solid #2a2f4a !important;
+  padding: 16px 20px !important;
+}
+
+.settings-card .el-card__header .card-header {
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
 }
 
 .settings-card .el-card__header span {
@@ -1571,5 +1622,21 @@ onMounted(() => {
   color: #64748b !important;
   font-size: 12px;
   margin-top: 20px;
+}
+
+/* 空状态样式 */
+.empty-state {
+  padding: 40px 0;
+  background: #1a1f3a;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.empty-state :deep(.el-empty__description) {
+  color: #94a3b8;
+}
+
+.empty-state :deep(.el-empty__description p) {
+  color: #94a3b8;
 }
 </style>

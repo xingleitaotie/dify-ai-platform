@@ -39,8 +39,13 @@ public class LlmConfigService {
         }
         wrapper.orderByDesc(LlmConfigEntity::getIsDefault)
                .orderByDesc(LlmConfigEntity::getUpdateTime);
+
+        Page<LlmConfigEntity> result = llmConfigMapper.selectPage(page, wrapper);
+        // 添加日志查看分页结果
+        log.info("分页查询结果 - pageNum: {}, pageSize: {}, total: {}, records size: {}",
+                pageNum, pageSize, result.getTotal(), result.getRecords().size());
         
-        return llmConfigMapper.selectPage(page, wrapper);
+        return result;
     }
     
     /**
