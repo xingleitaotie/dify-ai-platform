@@ -19,6 +19,7 @@
         <module>dify-user-service</module>
         <module>dify-prompt-engine</module>
         <module>dify-workflow-service</module>
+        <module>dify-model-provider</module>
     </modules>
     <version>1.0</version>
     <description>30天Java实现类Dify智能AI平台</description>
@@ -166,6 +167,11 @@
                 <artifactId>springfox-swagger2</artifactId>
                 <version>${springfox-swagger2.version}</version>
             </dependency>
+<!--            <dependency>-->
+<!--                <groupId>io.springfox</groupId>-->
+<!--                <artifactId>springfox-boot-starter</artifactId>-->
+<!--                <version>${springfox-swagger2.version}</version>-->
+<!--            </dependency>-->
             <dependency>
                 <groupId>io.springfox</groupId>
                 <artifactId>springfox-swagger-ui</artifactId>

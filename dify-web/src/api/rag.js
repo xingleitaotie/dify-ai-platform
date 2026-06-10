@@ -25,31 +25,6 @@ export const ragApi = {
         return request.post('/rag/text', { text })
     },
 
-    // 查询所有分块（默认知识库）
-    async listAllChunks() {
-        try {
-            const response = await request.get('/rag/chunks')
-            console.log('listAllChunks 原始响应:', response)
-            return response
-        } catch (error) {
-            console.error('listAllChunks 错误:', error)
-            throw error
-        }
-    },
-
-    // 获取所有文档块
-    listChunks() {
-        return request.get('/rag/chunks')
-    },
-
-    getChunkDetail(chunkId) {
-        return request.get(`/rag/chunks/${chunkId}`)
-    },
-
-    clearVector() {
-        return request.post('/rag/vector/clear')
-    },
-
     // ==================== 新增：知识库管理接口 ====================
 
     // 获取所有知识库
@@ -80,11 +55,6 @@ export const ragApi = {
     // 在指定知识库中检索
     searchInKb(kbId, data) {
         return request.post(`/rag/kb/${kbId}/search`, data)
-    },
-
-    // 获取默认知识库配置
-    getDefaultKBConfig() {
-        return request.get('/rag/kb/default/config')
     },
 
     // 更新知识库配置

@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS `prompt_template` (
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `use_count` INT DEFAULT 0 COMMENT '使用次数',
     `rating` INT DEFAULT 0 COMMENT '评分(1-5)',
+    `vector_store_name` VARCHAR(200) COMMENT '关联的向量库名称',
     PRIMARY KEY (`id`),
     INDEX `idx_name` (`name`),
     INDEX `idx_status` (`status`),

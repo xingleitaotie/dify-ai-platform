@@ -1,6 +1,5 @@
 package com.washy.dify.llm.service;
 
-
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.washy.dify.common.entity.function.FunctionCallRequest;
@@ -9,131 +8,542 @@ import com.washy.dify.common.entity.function.FunctionInfo;
 import com.washy.dify.common.entity.llm.ChatMessage;
 import com.washy.dify.common.entity.llm.ChatRequestDTO;
 import com.washy.dify.common.entity.llm.StreamChatRequestDTO;
+import com.washy.dify.common.entity.prompt.PromptTemplateVO;
 import com.washy.dify.common.exception.GlobalExceptionHandler;
 import com.washy.dify.common.result.Result;
 import com.washy.dify.feign.client.FunctionFeignClient;
-import com.washy.dify.llm.factory.LlmClientFactory;
+import com.washy.dify.feign.client.ModelProviderFeignClient;
+import com.washy.dify.feign.client.PromptFeignClient;
 import com.washy.dify.llm.util.ChatContextHolder;
-import com.washy.dify.llm.util.ChatMessageBuilder;
+import com.washy.dify.llm.util.SSEContentFixer;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.annotation.Resource;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @Slf4j
 public class LlmService {
-    @Resource
-    private FunctionFeignClient functionFeignClient;
-
-    @Resource
-    private LlmClientFactory llmClientFactory;
 
     @Resource
     private ChatContextHolder chatContextHolder;
 
     @Resource
-    private ChatMessageBuilder messageBuilder;
+    private ModelProviderFeignClient modelProviderFeignClient;
+
+    @Resource
+    private FunctionFeignClient functionFeignClient;
+
+    @Resource
+    private PromptFeignClient promptFeignClient;
 
     private static final Long SSE_TIMEOUT = 30 * 60 * 1000L;
 
+    @Resource
+    private RestTemplate restTemplate;
+
+    @Value("${modelProvider.llm.service-url}")
+    private String llmServiceUrl;
+    @Value("${modelProvider.llm.action}")
+    private String action;
+
+    // 缓存动态路由选中的模板（session级别）
+    private final Map<String, String> sessionTemplateCache = new ConcurrentHashMap<>();
+
+    // 缓存提示词模板内容（模板ID -> 模板内容）
+    private final Map<String, PromptTemplateVO> templateContentCache = new ConcurrentHashMap<>();
+
     /**
-     * 根据请求获取对应的LLM客户端
+     * 获取会话的模板ID（支持缓存）
      */
-    public LlmClient getClient(ChatRequestDTO request) {
-        // 优先使用配置ID
-        if (request.getConfigId() != null) {
-            return llmClientFactory.getLlmClientByConfigId(request.getConfigId());
+    private String getSessionTemplateId(String sessionId, String userMessage, String intent) {
+        // 1. 如果会话已经有绑定的模板，直接使用
+        if (sessionTemplateCache.containsKey(sessionId)) {
+            String templateId = sessionTemplateCache.get(sessionId);
+            log.debug("使用会话缓存的模板: sessionId={}, templateId={}", sessionId, templateId);
+            return templateId;
         }
-        // 其次使用模型类型
-        if (request.getModelType() != null && !request.getModelType().isEmpty()) {
-            return llmClientFactory.getLlmClientByType(request.getModelType());
-        }
-        // 默认客户端
-        return llmClientFactory.getLlmClient();
-    }
 
-    private LlmClient getClient(StreamChatRequestDTO request) {
-        if (request.getConfigId() != null) {
-            return llmClientFactory.getLlmClientByConfigId(request.getConfigId());
+        // 2. 如果请求指定了intent，转换为模板ID（兼容旧版本）
+        if (intent != null && !intent.isEmpty()) {
+            String templateId = getTemplateIdByType(intent);
+            if (templateId != null) {
+                sessionTemplateCache.put(sessionId, templateId);
+                log.info("根据intent绑定模板: sessionId={}, intent={}, templateId={}", sessionId, intent, templateId);
+                return templateId;
+            }
         }
-        if (request.getModelType() != null && !request.getModelType().isEmpty()) {
-            return llmClientFactory.getLlmClientByType(request.getModelType());
+
+        // 3. 使用动态路由获取模板
+        try {
+            Map<String,String> request = new HashMap<>();
+            request.put("query",userMessage);
+            Result<PromptTemplateVO> routeResult = promptFeignClient.route(request);
+            if (routeResult != null && routeResult.getCode() == 200 && routeResult.getData() != null) {
+                PromptTemplateVO template = routeResult.getData();
+                String templateId = template.getId();
+                sessionTemplateCache.put(sessionId, templateId);
+                templateContentCache.put(templateId, template);
+                log.info("动态路由选中模板: sessionId={}, templateId={}, name={}, type={}",
+                        sessionId, templateId, template.getName(), template.getType());
+                return templateId;
+            }
+        } catch (Exception e) {
+            log.error("动态路由调用失败，将使用默认模板", e);
         }
-        return llmClientFactory.getLlmClient();
+
+        return null;
     }
 
     /**
-     * 普通对话（支持指定模型）
+     * 根据type获取模板ID（兼容旧版本）
+     */
+    private String getTemplateIdByType(String type) {
+        try {
+            Result<List<PromptTemplateVO>> result = promptFeignClient.getTemplatesByType(type);
+            if (result != null && result.getCode() == 200 && result.getData() != null && !result.getData().isEmpty()) {
+                return result.getData().get(0).getId();
+            }
+        } catch (Exception e) {
+            log.warn("根据type获取模板失败: type={}", type, e);
+        }
+        return null;
+    }
+
+    /**
+     * 获取模板内容
+     */
+    private PromptTemplateVO getTemplateContent(String templateId) {
+        // 先从缓存获取
+        if (templateContentCache.containsKey(templateId)) {
+            return templateContentCache.get(templateId);
+        }
+
+        // 缓存未命中，从服务获取
+        try {
+            Result<PromptTemplateVO> result = promptFeignClient.getTemplate(templateId);
+            if (result != null && result.getCode() == 200 && result.getData() != null) {
+                templateContentCache.put(templateId, result.getData());
+                return result.getData();
+            }
+        } catch (Exception e) {
+            log.error("获取模板内容失败: templateId={}", templateId, e);
+        }
+
+        return null;
+    }
+
+    /**
+     * 清除会话模板缓存（新会话时调用）
+     */
+    public void clearSessionTemplate(String sessionId) {
+        sessionTemplateCache.remove(sessionId);
+        log.debug("清除会话模板缓存: sessionId={}", sessionId);
+    }
+
+    /**
+     * 构建消息列表（支持动态路由获取系统提示词）
+     */
+    private List<ChatMessage> buildMessagesWithDynamicPrompt(ChatRequestDTO request) {
+        List<ChatMessage> messages = new ArrayList<>();
+        String sessionId = request.getSessionId();
+
+        // 1. 获取系统提示词
+        String systemPrompt = null;
+
+        // 优先使用请求中直接传入的系统提示词
+        if (request.getMessages() != null && !request.getMessages().isEmpty()) {
+            for (ChatMessage msg : request.getMessages()) {
+                if ("system".equals(msg.getRole())) {
+                    systemPrompt = msg.getContent();
+                    break;
+                }
+            }
+        }
+
+        // 如果请求中没有系统提示词，尝试通过动态路由获取
+        if (systemPrompt == null) {
+            String templateId = getSessionTemplateId(sessionId, request.getMessage(), request.getIntent());
+            if (templateId != null) {
+                PromptTemplateVO template = getTemplateContent(templateId);
+                if (template != null && template.getTemplate() != null) {
+                    systemPrompt = template.getTemplate();
+                    log.info("使用动态路由模板: templateId={}, name={}", templateId, template.getName());
+                }
+            }
+        }
+
+        // 如果还是没有，使用默认系统提示词
+        if (systemPrompt == null) {
+            systemPrompt = getDefaultSystemPrompt();
+            log.warn("未找到合适的模板，使用默认系统提示词");
+        }
+
+        // 添加系统消息
+        messages.add(ChatMessage.system(systemPrompt));
+
+        // 2. 添加历史消息
+        if (request.getMessages() != null && !request.getMessages().isEmpty()) {
+            for (ChatMessage msg : request.getMessages()) {
+                if (!"system".equals(msg.getRole())) {
+                    messages.add(msg);
+                }
+            }
+        } else if (request.getMessage() != null) {
+            // 单条消息模式
+            messages.add(ChatMessage.user(request.getMessage()));
+        }
+
+        return messages;
+    }
+
+    /**
+     * 获取模型参数（优先从请求参数，其次从模板获取）
+     */
+    private Map<String, Object> getModelParams(ChatRequestDTO request, String templateId) {
+        Map<String, Object> params = new HashMap<>();
+
+        // 1. 优先使用请求中的参数
+        if (request.getParams() != null) {
+            params.putAll(request.getParams());
+        }
+
+        // 2. 如果params中没有temperature，从模板获取
+        if (!params.containsKey("temperature") && templateId != null) {
+            PromptTemplateVO template = getTemplateContent(templateId);
+            if (template != null) {
+                Double temperature = null;
+
+                // 方式1：从 ModelParamsDTO 中获取
+                if (template.getModelParams() != null && template.getModelParams().getTemperature() != null) {
+                    temperature = template.getModelParams().getTemperature().doubleValue();
+                }
+                // 方式2：从新增的 temperature 字段获取
+                else if (template.getTemperature() != null) {
+                    temperature = template.getTemperature().doubleValue();
+                }
+
+                if (temperature != null) {
+                    params.put("temperature", temperature);
+                    log.info("使用模板温度参数: temperature={}", temperature);
+                }
+            }
+        }
+
+        // 3. 如果还是没有temperature，使用默认值
+        if (!params.containsKey("temperature")) {
+            params.put("temperature", 0.7);
+        }
+
+        // 4. 其他参数（max_tokens, top_p 同理）
+        if (!params.containsKey("max_tokens") && templateId != null) {
+            PromptTemplateVO template = getTemplateContent(templateId);
+            if (template != null) {
+                Integer maxTokens = null;
+                if (template.getModelParams() != null && template.getModelParams().getMaxTokens() != null) {
+                    maxTokens = template.getModelParams().getMaxTokens();
+                } else if (template.getMaxTokens() != null) {
+                    maxTokens = template.getMaxTokens();
+                }
+                if (maxTokens != null) {
+                    params.put("max_tokens", maxTokens);
+                }
+            }
+        }
+        if (!params.containsKey("max_tokens")) {
+            params.put("max_tokens", 2048);
+        }
+
+        if (!params.containsKey("top_p") && templateId != null) {
+            PromptTemplateVO template = getTemplateContent(templateId);
+            if (template != null) {
+                Float topP = null;
+                if (template.getModelParams() != null && template.getModelParams().getTopP() != null) {
+                    topP = template.getModelParams().getTopP();
+                } else if (template.getTopP() != null) {
+                    topP = template.getTopP().floatValue();
+                }
+                if (topP != null) {
+                    params.put("top_p", topP);
+                }
+            }
+        }
+        if (!params.containsKey("top_p")) {
+            params.put("top_p", 0.9);
+        }
+
+        return params;
+    }
+
+    /**
+     * 同步对话 - 集成动态路由
      */
     public String chat(ChatRequestDTO request) {
-
-        // 1. 获取 LLM 客户端
-        LlmClient client = getClient(request);
-
-        List<ChatMessage> messages = null;
-
-        // 如果前端已经封装好系统提示词和用户提示词，则直接查询
-        if(request.getMessages() != null){
-            messages = request.getMessages();
-            log.info("LLM对话请求 - 模型类型: {}, 消息数: {}", client.toString(), messages.size());
-        }else {
-
-            // 2. 获取系统提示词（如果需要）
-            String systemPrompt = getSystemPrompt(request);
-
-            // 3. 构建消息列表
-            messages = messageBuilder.buildMessages(request, systemPrompt);
-            log.info("LLM对话请求 - 模型类型: {}, 系统提示词为: {}, 用户提示词为: {}", client.toString(), systemPrompt, request.getMessage());
-        }
-        // 4. 获取参数
-        Double temperature = extractTemperature(request.getParams());
-        Integer maxTokens = extractMaxTokens(request.getParams());
-
-        // 5. 调用 LLM
-        log.info("调用 LLM，sessionId: {}, 消息数: {}",
-                request.getSessionId(), messages.size());
-
-        String result;
-        if (temperature != null || maxTokens != null) {
-            result = client.chat(messages, temperature, maxTokens);
-        } else {
-            result = client.chat(messages);
+        // 生成sessionId（如果没有传入）
+        if (request.getSessionId() == null || request.getSessionId().isEmpty()) {
+            request.setSessionId(UUID.randomUUID().toString());
         }
 
-        return result;
+        // 1. 构建消息列表（内部集成动态路由）
+        List<ChatMessage> messages = buildMessagesWithDynamicPrompt(request);
+
+        // 2. 获取模板ID（用于获取模型参数）
+        String templateId = getSessionTemplateId(request.getSessionId(), request.getMessage(), request.getIntent());
+
+        // 3. 获取模型参数
+        Map<String, Object> params = getModelParams(request, templateId);
+
+        // 4. 调用统一对话接口
+        Map<String, Object> invokeRequest = new HashMap<>();
+        invokeRequest.put("messages", messages);
+        invokeRequest.putAll(params);
+
+        // 如果有其他 params 参数，也传递
+        if (request.getParams() != null) {
+            for (Map.Entry<String, Object> entry : request.getParams().entrySet()) {
+                if (!params.containsKey(entry.getKey())) {
+                    invokeRequest.put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+
+        Result<String> result = modelProviderFeignClient.unifiedSyncChat(invokeRequest);
+        if (result.getCode() != 200) {
+            log.error("模型调用失败: {}", result.getMsg());
+            return "模型调用失败：" + result.getMsg();
+        }
+
+        return result.getData();
     }
 
     /**
-     * 兼容旧版
+     * 构建流式消息列表（支持动态路由）
      */
-    public String chat(String prompt) {
-        ChatRequestDTO request = new ChatRequestDTO();
-        request.setMessage(prompt);
-        return chat(request);
+    private List<ChatMessage> buildStreamMessagesWithDynamicPrompt(String sessionId, StreamChatRequestDTO request) {
+        List<ChatMessage> allMessages = new ArrayList<>();
+
+        // 1. 获取系统提示词
+        String systemPrompt = null;
+
+        // 优先使用请求中的系统提示词
+        if (request.getMessages() != null && !request.getMessages().isEmpty()) {
+            for (ChatMessage msg : request.getMessages()) {
+                if ("system".equals(msg.getRole())) {
+                    systemPrompt = msg.getContent();
+                    break;
+                }
+            }
+        }
+
+        // 如果请求中没有系统提示词，通过动态路由获取
+        if (systemPrompt == null) {
+            String templateId = getSessionTemplateId(sessionId, request.getMessage(), request.getIntent());
+            if (templateId != null) {
+                PromptTemplateVO template = getTemplateContent(templateId);
+                if (template != null && template.getTemplate() != null) {
+                    systemPrompt = template.getTemplate();
+                    log.info("流式对话使用动态路由模板: sessionId={}, templateId={}, name={}",
+                            sessionId, templateId, template.getName());
+                }
+            }
+        }
+
+        // 使用默认
+        if (systemPrompt == null) {
+            systemPrompt = getDefaultSystemPrompt();
+        }
+
+        allMessages.add(ChatMessage.system(systemPrompt));
+
+        // 2. 添加历史消息
+        List<ChatMessage> contextMessages = chatContextHolder.getContext(sessionId);
+        if (contextMessages != null && !contextMessages.isEmpty()) {
+            allMessages.addAll(contextMessages);
+        }
+
+        // 3. 添加当前用户消息
+        ChatMessage userChatMessage = ChatMessage.user(request.getMessage());
+        if (request.getSaveContext() == null || request.getSaveContext()) {
+            chatContextHolder.saveMessage(sessionId, userChatMessage);
+        }
+        allMessages.add(userChatMessage);
+
+        // 4. 限制消息数量（保留最近的消息）
+        int maxHistorySize = 20;
+        if (allMessages.size() > maxHistorySize) {
+            // 保留系统消息 + 最近的消息
+            List<ChatMessage> recentMessages = allMessages.subList(
+                    allMessages.size() - (maxHistorySize - 1),
+                    allMessages.size()
+            );
+            allMessages = new ArrayList<>();
+            allMessages.add(ChatMessage.system(systemPrompt));
+            allMessages.addAll(recentMessages);
+        }
+
+        return allMessages;
     }
 
     /**
-     * 条件对话
+     * 流式对话 - 集成动态路由
      */
-    public Object conditionChat(ChatRequestDTO request) {
-        log.info("条件对话请求 - 模型类型: {}", request.getModelType());
+    public SseEmitter streamChat(StreamChatRequestDTO request) {
+        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
+        String sessionId = request.getSessionId();
 
-        LlmClient client = getClient(request);
+        new Thread(() -> {
+            try {
+                // 获取模板ID用于获取温度参数
+                String templateId = getSessionTemplateId(sessionId, request.getMessage(), request.getIntent());
 
-        Map<String, Object> params = request.getParams();
-        if (params == null) {
-            params = new HashMap<>();
+                // 获取模型参数
+                Double temperature = request.getTemperature();
+                if (temperature == null && templateId != null) {
+                    PromptTemplateVO template = getTemplateContent(templateId);
+                    if (template != null && template.getModelParams() != null && template.getModelParams().getTemperature() != null) {
+                        temperature = template.getModelParams().getTemperature().doubleValue();
+                    }
+                }
+                if (temperature == null) {
+                    temperature = 0.7;
+                }
+
+                List<ChatMessage> messages = buildStreamMessagesWithDynamicPrompt(sessionId, request);
+
+                Map<String, Object> invokeRequest = new HashMap<>();
+                invokeRequest.put("messages", messages);
+                invokeRequest.put("temperature", temperature);
+                invokeRequest.put("stream", true);
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(invokeRequest, headers);
+
+                String url = llmServiceUrl + action;
+                log.info("流式请求URL: {}, sessionId={}, temperature={}", url, sessionId, temperature);
+
+                restTemplate.execute(url, HttpMethod.POST,
+                        requestCallback -> {
+                            requestCallback.getHeaders().putAll(headers);
+                            requestCallback.getBody().write(JSON.toJSONString(invokeRequest).getBytes(StandardCharsets.UTF_8));
+                        },
+                        responseExtractor -> {
+                            try (BufferedReader reader = new BufferedReader(
+                                    new InputStreamReader(responseExtractor.getBody(), StandardCharsets.UTF_8))) {
+                                String line;
+                                StringBuilder contentBuffer = new StringBuilder();
+
+                                while ((line = reader.readLine()) != null) {
+                                    if (line.trim().isEmpty()) continue;
+                                    if (line.startsWith("data:")) {
+                                        String chunk = line.substring(5);
+                                        if ("[DONE]".equals(chunk.trim())) {
+                                            // 发送前修复内容
+                                            if (contentBuffer.length() > 0) {
+                                                String content = contentBuffer.toString();
+                                                content = SSEContentFixer.fixFragmentedContent(content);
+                                                emitter.send(SseEmitter.event().data(content));
+                                            }
+                                            break;
+                                        }
+
+                                        contentBuffer.append(chunk);
+
+                                        // 在合适的时候发送
+                                        if (shouldSend(contentBuffer.toString())) {
+                                            String content = contentBuffer.toString();
+                                            content = SSEContentFixer.fixFragmentedContent(content);
+                                            emitter.send(SseEmitter.event().data(content));
+                                            contentBuffer.setLength(0);
+                                        }
+                                    }
+                                }
+                            }
+                            emitter.complete();
+                            return null;
+                        }
+                );
+
+            } catch (Exception e) {
+                log.error("流式对话异常", e);
+                emitter.completeWithError(e);
+            }
+        }).start();
+
+        return emitter;
+    }
+
+    /**
+     * 判断缓冲区内容是否应该发送
+     */
+    private boolean shouldSend(String content) {
+        if (content == null || content.isEmpty()) {
+            return false;
         }
-        params.put("prompt", request.getMessage());
 
-        return client.chat(params);
+        if (isInCodeBlock(content)) {
+            return content.endsWith("\n") && content.length() >= 50;
+        }
+
+        if (content.endsWith("。") || content.endsWith("！") ||
+                content.endsWith("？") || content.endsWith(".") ||
+                content.endsWith("!") || content.endsWith("?")) {
+            return true;
+        }
+
+        if (content.matches(".*\\n[-\\d].*")) {
+            return true;
+        }
+
+        if (content.contains("**") && countOccurrences(content, "**") % 2 == 0) {
+            return true;
+        }
+
+        if (content.length() >= 200) {
+            return true;
+        }
+
+        if (content.contains("\n") && content.length() >= 80) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 判断是否在代码块中
+     */
+    private boolean isInCodeBlock(String content) {
+        int count = countOccurrences(content, "```");
+        return count % 2 != 0;
+    }
+
+    /**
+     * 计算子串出现次数
+     */
+    private int countOccurrences(String str, String subStr) {
+        if (str == null || subStr == null || str.isEmpty() || subStr.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        int index = 0;
+        while ((index = str.indexOf(subStr, index)) != -1) {
+            count++;
+            index += subStr.length();
+        }
+        return count;
     }
 
     /**
@@ -141,53 +551,29 @@ public class LlmService {
      */
     public String chatWithFunction(ChatRequestDTO request) {
         try {
-            LlmClient client = getClient(request);
-
-            // 1. 获取所有注册的函数定义
             Result<List<FunctionInfo>> functionListResult = functionFeignClient.getFunctionList();
             List<FunctionInfo> functionList = functionListResult.getData();
 
-            // 2. 构建给大模型的 Prompt
             List<ChatMessage> messages = new ArrayList<>();
-            if(request.getMessages() != null && !request.getMessages().isEmpty()){
-                messages = request.getMessages();
-            }else{
-                messages.add(ChatMessage.system(buildFunctionSystemPrompt(functionList)));
-                messages.add(ChatMessage.user(buildFunctionUserPrompt(request.getMessage())));
+            messages.add(ChatMessage.system(buildFunctionSystemPrompt(functionList)));
+            messages.add(ChatMessage.user(buildFunctionUserPrompt(request.getMessage())));
+
+            Map<String, Object> invokeRequest = new HashMap<>();
+            invokeRequest.put("messages", messages);
+
+            Result<String> llmResult = modelProviderFeignClient.unifiedSyncChat(invokeRequest);
+            if (llmResult.getCode() != 200) {
+                throw new GlobalExceptionHandler("模型调用失败：" + llmResult.getMsg());
             }
 
-            // 3. 调用大模型
-            String llmRawResponse = client.chat(messages);
-             log.info("大模型原始返回：{}", llmRawResponse);
+            String llmRawResponse = llmResult.getData();
+            log.info("大模型原始返回：{}", llmRawResponse);
 
-            // 4. 解析模型返回，判断是否需要调用函数
             if (isFunctionCallResponse(llmRawResponse)) {
-                List<FunctionCallRequest> functions = parseFunctionCall(llmRawResponse);
-                List<FunctionExecuteResult> allResults = new ArrayList<>();
-
-                for (FunctionCallRequest functionCallRequest : functions) {
-                    Result<FunctionExecuteResult> result = functionFeignClient.invokeFunction(functionCallRequest);
-                    if (result != null && result.getCode() == 200) {
-                        allResults.add(result.getData());
-                    } else {
-                        // 调用失败时也记录，便于调试
-                        FunctionExecuteResult errorResult = new FunctionExecuteResult();
-                        errorResult.setSuccess(false);
-                        errorResult.setFunctionName(functionCallRequest.getFunctionName());
-                        errorResult.setErrorMsg(result != null ? result.getMsg() : "调用失败");
-                        allResults.add(errorResult);
-                    }
-                }
-
-                // 根据结果数量格式化输出
-                if (allResults.size() == 1) {
-                    // 单个函数：直接输出数据
-                    FunctionExecuteResult singleResult = allResults.get(0);
-                    llmRawResponse = singleResult.getData() != null ? singleResult.getData().toString() : "{}";
-                } else {
-                    // 多个函数：输出JSON数组，包含完整信息
-                    llmRawResponse = JSON.toJSONString(allResults);
-                }
+                FunctionCallRequest functionRequest = parseFunctionCall(llmRawResponse);
+                Result<FunctionExecuteResult> functionResultResult = functionFeignClient.invokeFunction(functionRequest);
+                FunctionExecuteResult functionResult = functionResultResult.getData();
+                return buildFinalAnswer(request.getMessage(), functionResult);
             }
 
             return llmRawResponse;
@@ -198,124 +584,19 @@ public class LlmService {
     }
 
     /**
-     * 流式对话
+     * RAG问答（集成动态路由）
      */
-    public SseEmitter streamChat(StreamChatRequestDTO request) {
-        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
-        String sessionId = request.getSessionId();
-
-        LlmClient client = getClient(request);
-
-        llmClientFactory.getThreadPoolExecutor().execute(() -> {
-            try {
-                List<ChatMessage> messages = null;
-                if(null != request.getMessages() && !request.getMessages().isEmpty()){
-                    messages = request.getMessages();
-                }
-                else {
-                    messages = buildChatMessages(sessionId, request.getMessage());
-                }
-                // 使用数组包装以突破 final 限制
-                StringBuilder buffer = new StringBuilder();
-                int[] lastSendLength = {0};
-                long[] lastSendTime = {System.currentTimeMillis()};
-
-                client.chatStream(messages, chunk -> {
-                    buffer.append(chunk);
-
-                    int currentLength = buffer.length();
-                    long now = System.currentTimeMillis();
-                    boolean shouldSend = (currentLength - lastSendLength[0] >= 50)
-                            || (now - lastSendTime[0] >= 100);
-
-                    if (shouldSend) {
-                        String toSend = buffer.substring(lastSendLength[0]);
-                        lastSendLength[0] = currentLength;
-                        lastSendTime[0] = now;
-                        try {
-                            emitter.send(toSend);
-                        } catch (IOException e) {
-                            log.error("发送失败", e);
-                            emitter.completeWithError(e);
-                        }
-                    }
-                });
-
-                // 发送剩余内容
-                if (buffer.length() > lastSendLength[0]) {
-                    emitter.send(buffer.substring(lastSendLength[0]));
-                }
-                emitter.send("[DONE]");
-                emitter.complete();
-
-            } catch (Exception e) {
-                log.error("流式对话异常", e);
-                emitter.completeWithError(e);
-            }
-        });
-
-        return emitter;
-    }
-
-    /**
-     * 测试模型连接
-     */
-    public boolean testModel(ChatRequestDTO request) {
-        try {
-            LlmClient client = getClient(request);
-            List<ChatMessage> messages = new ArrayList<>();
-            messages.add(ChatMessage.system("你是一个专业测试大模型是否连接成功的助手，请根据客户要求，直接输出"));
-            messages.add(ChatMessage.user("你好，请回复'连接成功'"));
-            String result = client.chat(messages);
-            return result != null && !result.isEmpty();
-        } catch (Exception e) {
-            log.error("测试模型连接失败", e);
-            return false;
-        }
-    }
-
-    /**
-     * 构建最终答案
-     */
-    private String buildFinalAnswer(String userQuestion, FunctionExecuteResult functionResult, LlmClient client) {
-        // 检查工具结果是否有效
-        String toolData = "";
-        if (functionResult != null && functionResult.getSuccess() != null && functionResult.getSuccess()) {
-            if (functionResult.getData() != null) {
-                toolData = functionResult.getData().toString();
-            } else  {
-                toolData = "";
-            }
-        }
-
-        // 如果没有有效结果
-        if (toolData == null || toolData.trim().isEmpty()) {
-            toolData = "工具未返回有效结果";
-        }
-
-        String system = "请根据以下工具查询结果回答用户问题。\n\n" +
-                "工具查询结果：" + toolData + "\n\n" +
-                "要求：\n" +
-                "1. 直接使用工具查询结果中的信息回答用户\n" +
-                "2. 回答要简洁、自然\n" +
-                "3. 不要输出 JSON 格式\n" +
-                "4. 不要输出 <think> 标签\n" +
-                "5. 直接给出答案，例如：北京今天天气晴朗，温度25℃，空气质量优";
-        String user = "用户问题：" + userQuestion + "\n\n";
-
-        log.info("LLM 最终回答请求：{}", system + user);
-
-        List<ChatMessage> messages = new ArrayList<>();
-        messages.add(ChatMessage.system(system));
-        messages.add(ChatMessage.user(user));
-        String result = client.chat(messages);
-        log.info("LLM 最终回答结果：{}", result);
+    public String ragQa(ChatRequestDTO request) {
+        // RAG问答使用专门的模板类型
+        String originalIntent = request.getIntent();
+        request.setIntent("RAG");
+        String result = chat(request);
+        request.setIntent(originalIntent);
         return result;
     }
 
-    /**
-     * 构建带 Function 定义的 SystemPrompt
-     */
+    // ==================== Function Calling 相关方法 ====================
+
     private String buildFunctionSystemPrompt(List<FunctionInfo> functions) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("你是一个智能助手，具备函数调用能力。\n");
@@ -332,196 +613,94 @@ public class LlmService {
         prompt.append("2. 如果不需要调用函数，直接正常回答\n");
         return prompt.toString();
     }
-    /**
-     * 构建带 Function 定义的 UserPrompt
-     */
+
     private String buildFunctionUserPrompt(String userMessage) {
-        StringBuilder prompt = new StringBuilder();
-        prompt.append("用户问题：").append(userMessage);
-        return prompt.toString();
+        return "用户问题：" + userMessage;
     }
 
     private boolean isFunctionCallResponse(String response) {
         if (response == null || response.trim().isEmpty()) {
             return false;
         }
-
         String trimmed = response.trim();
-
-        // 1. JSON 格式判断
         if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
             return false;
         }
-
-        // 2. 包含函数调用关键字
         boolean hasFunctionKey = trimmed.contains("\"functionName\"") ||
                 trimmed.contains("\"function\"") ||
                 trimmed.contains("\"name\"");
-
-        // 3. 不包含代码特征（排除 Java 代码）
         boolean hasCodeFeatures = trimmed.contains("private") ||
                 trimmed.contains("public") ||
                 trimmed.contains("return") ||
                 trimmed.contains("class ") ||
                 trimmed.contains("void ") ||
                 trimmed.contains("();");
-
         return hasFunctionKey && !hasCodeFeatures;
     }
 
-    private List<FunctionCallRequest> parseFunctionCall(String response) {
+    private FunctionCallRequest parseFunctionCall(String response) {
         try {
-            String[] lines = response.trim().split("\n");
-            List<FunctionCallRequest> requests = new ArrayList<>();
-
-            for (String line : lines) {
-                if (line.trim().isEmpty()) continue;
-                JSONObject json = JSON.parseObject(line.trim());
-                FunctionCallRequest request = new FunctionCallRequest();
-                request.setFunctionName(json.getString("functionName"));
-                request.setParameters(json.getObject("params", Object.class));
-                requests.add(request);
-            }
-            return requests;
+            JSONObject json = JSON.parseObject(response.trim());
+            FunctionCallRequest request = new FunctionCallRequest();
+            request.setFunctionName(json.getString("functionName"));
+            request.setParameters(json.getObject("params", Object.class));
+            return request;
         } catch (Exception e) {
             throw new GlobalExceptionHandler("解析函数调用失败：" + e.getMessage());
         }
     }
 
-    /**
-     * 构建完整对话上下文
-     */
-    public List<ChatMessage> buildChatMessages(String sessionId, String userMessage) {
-        List<ChatMessage> allMessages = new ArrayList<>();
-
-        String systemPrompt = getDefaultSystemPrompt();
-        if (!systemPrompt.isEmpty()) {
-            allMessages.add(ChatMessage.system(systemPrompt));
-        }
-
-        List<ChatMessage> contextMessages = chatContextHolder.getContext(sessionId);
-        if (contextMessages != null && !contextMessages.isEmpty()) {
-            allMessages.addAll(contextMessages);
-        }
-
-        ChatMessage userChatMessage = ChatMessage.user(userMessage);
-        chatContextHolder.saveMessage(sessionId, userChatMessage);
-        allMessages.add(userChatMessage);
-
-        // 限制消息数量
-        int maxHistorySize = 20;
-        if (allMessages.size() > maxHistorySize) {
-            boolean hasSystem = allMessages.get(0).getRole().equals("system");
-            if (hasSystem) {
-                List<ChatMessage> recentMessages = allMessages.subList(
-                        allMessages.size() - (maxHistorySize - 1),
-                        allMessages.size()
-                );
-                allMessages = new ArrayList<>();
-                allMessages.add(ChatMessage.system(systemPrompt));
-                allMessages.addAll(recentMessages);
-            } else {
-                allMessages = allMessages.subList(allMessages.size() - maxHistorySize, allMessages.size());
+    private String buildFinalAnswer(String userQuestion, FunctionExecuteResult functionResult) {
+        String toolData = "";
+        if (functionResult != null && functionResult.getSuccess() != null && functionResult.getSuccess()) {
+            if (functionResult.getData() != null) {
+                toolData = functionResult.getData().toString();
             }
         }
 
-        log.info("构建消息列表完成，共 {} 条消息", allMessages.size());
-        return allMessages;
-    }
-
-    /**
-     * 提取 temperature 参数
-     */
-    private Double extractTemperature(Map<String, Object> params) {
-        if (params != null && params.containsKey("temperature")) {
-            Object value = params.get("temperature");
-            if (value instanceof Number) {
-                return ((Number) value).doubleValue();
-            }
-        }
-        return null;  // 使用客户端默认值
-    }
-
-    /**
-     * 提取 maxTokens 参数
-     */
-    private Integer extractMaxTokens(Map<String, Object> params) {
-        if (params != null && params.containsKey("maxTokens")) {
-            Object value = params.get("maxTokens");
-            if (value instanceof Number) {
-                return ((Number) value).intValue();
-            }
-        }
-        return null;
-    }
-
-    /**
-     * 获取系统提示词
-     */
-    private String getSystemPrompt(ChatRequestDTO requestDTO) {
-        // 优先使用请求中的 system prompt（如果有）
-        if (requestDTO.getHistory() != null && !requestDTO.getHistory().isEmpty()) {
-            for (ChatMessage msg : requestDTO.getHistory()) {
-                if ("system".equals(msg.getRole())) {
-                    log.debug("使用请求中的 system prompt");
-                    return msg.getContent();
-                }
-            }
+        if (toolData == null || toolData.trim().isEmpty()) {
+            toolData = "工具未返回有效结果";
         }
 
-        // 使用默认系统提示词
-        return getDefaultSystemPrompt();
+        String system = "请根据以下工具查询结果回答用户问题。\n\n" +
+                "工具查询结果：" + toolData + "\n\n" +
+                "要求：\n" +
+                "1. 直接使用工具查询结果中的信息回答用户\n" +
+                "2. 回答要简洁、自然\n" +
+                "3. 不要输出 JSON 格式\n" +
+                "4. 不要输出 <think> 标签\n" +
+                "5. 直接给出答案";
+
+        String user = "用户问题：" + userQuestion;
+
+        List<ChatMessage> messages = new ArrayList<>();
+        messages.add(ChatMessage.system(system));
+        messages.add(ChatMessage.user(user));
+
+        Map<String, Object> invokeRequest = new HashMap<>();
+        invokeRequest.put("messages", messages);
+
+        Result<String> result = modelProviderFeignClient.unifiedSyncChat(invokeRequest);
+        if (result.getCode() != 200) {
+            log.error("最终答案生成失败: {}", result.getMsg());
+            return "生成答案失败：" + result.getMsg();
+        }
+
+        log.info("LLM 最终回答结果：{}", result.getData());
+        return result.getData();
     }
 
     /**
-     * 获取系统提示词（可根据 sessionId 或 Agent 配置获取）
+     * 获取默认系统提示词（降级方案）
      */
     private String getDefaultSystemPrompt() {
-
-
         return "你是一个智能AI助手，名叫 Dify AI。\n\n" +
-
                 "## 核心规则\n" +
                 "1. 回答要准确、简洁、有帮助\n" +
                 "2. 如果不知道答案，直接说\"我不知道\"，不要编造\n" +
-                "3. 禁止使用开场白（如\"当然\"、\"好的\"、\"没问题\"）\n" +
-                "4. 复杂问题先用 <think> 标签展示思考过程，然后给出答案\n" +
-                "5. 简单问题直接回答，不需要 <think> 标签\n\n" +
-
-                "## 思考标签使用规则\n" +
-                "仅在以下情况使用 <think> 标签：\n" +
-                "- 数学计算、逻辑推理\n" +
-                "- 代码分析、算法设计\n" +
-                "- 多步骤问题拆解\n" +
-                "- 对比分析类问题\n\n" +
-
-                "## 输出格式示例\n\n" +
-
-                "### 示例1：复杂问题（需要思考）\n" +
-                "<think>\n" +
-                "用户问的是快速排序算法的实现原理。\n" +
-                "快速排序的核心是分治思想：选择基准值，分区，递归排序。\n" +
-                "时间复杂度：平均 O(n log n)，最差 O(n²)。\n" +
-                "需要给出Python代码示例。\n" +
-                "</think>\n\n" +
-                "快速排序是一种分治排序算法，核心思想是：\n" +
-                "1. 选择一个基准值(pivot)\n" +
-                "2. 将小于基准值的放左边，大于的放右边\n" +
-                "3. 递归排序左右子数组\n\n" +
-                "```python\n" +
-                "def quick_sort(arr):\n" +
-                "    if len(arr) <= 1:\n" +
-                "        return arr\n" +
-                "    pivot = arr[0]\n" +
-                "    left = [x for x in arr[1:] if x <= pivot]\n" +
-                "    right = [x for x in arr[1:] if x > pivot]\n" +
-                "    return quick_sort(left) + [pivot] + quick_sort(right)\n" +
-                "```\n\n" +
-
-                "### 示例2：简单问题（直接回答）\n" +
-                "用户问：今天天气怎么样？\n" +
-                "回答：抱歉，我无法获取实时天气信息。建议您查看天气预报应用。\n\n" +
-
+                "3. 使用Markdown格式组织内容\n" +
+                "4. 代码必须使用标准Markdown代码块，格式为：```语言名称\n" +
+                "5. 复杂问题可以分步骤回答\n\n" +
                 "现在请回答用户的问题。";
     }
 }

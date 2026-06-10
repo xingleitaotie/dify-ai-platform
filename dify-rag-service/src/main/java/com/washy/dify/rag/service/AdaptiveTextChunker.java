@@ -572,40 +572,4 @@ public class AdaptiveTextChunker {
             return String.format("%.2f MB", size / (1024.0 * 1024.0));
         }
     }
-
-    public ChunkResult processTextContent(String content, String title) {
-        String documentId = UUID.randomUUID().toString();
-        String fileName = (title != null ? title : "text") + ".txt";
-
-        try {
-            List<String> textChunks = textChunker.chunk(content);
-
-            List<DocumentChunk> chunks = new ArrayList<>();
-            for (int i = 0; i < textChunks.size(); i++) {
-                Map<String, Object> metadata = new HashMap<>();
-                metadata.put("type", "api_text");
-                metadata.put("chunkIndex", i);
-                metadata.put("totalChunks", textChunks.size());
-                DocumentChunk chunk = DocumentChunk.builder()
-                        .chunkId(documentId + "_" + String.format("%04d", i))
-                        .documentId(documentId)
-                        .sectionTitle(title != null ? title + "_" + (i + 1) : "文本_" + (i + 1))
-                        .sectionNumber(String.valueOf(i + 1))
-                        .sectionLevel(1)
-                        .content(textChunks.get(i))
-                        .images(new ArrayList<>())
-                        .tables(new ArrayList<>())
-                        .metadata(metadata)
-                        .build();
-                chunks.add(chunk);
-            }
-
-            int stored = factory.getVectorStoreService().storeDocumentChunks(chunks, documentId, fileName);
-            return ChunkResult.success(documentId, fileName, chunks, new HashMap<>(), new ArrayList<>(), stored);
-
-        } catch (Exception e) {
-            log.error("文本内容处理失败", e);
-            return ChunkResult.fail(e.getMessage());
-        }
-    }
 }

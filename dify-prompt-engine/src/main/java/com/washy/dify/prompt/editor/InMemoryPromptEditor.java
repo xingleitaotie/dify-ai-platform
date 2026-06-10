@@ -1,8 +1,8 @@
 package com.washy.dify.prompt.editor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.washy.dify.common.entity.prompt.PromptTemplateVO;
 import com.washy.dify.prompt.core.PromptManager;
-import com.washy.dify.prompt.entity.PromptTemplateVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

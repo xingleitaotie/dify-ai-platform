@@ -14,7 +14,6 @@
           :key="agent.id"
           class="agent-card"
       >
-        <!-- 操作按钮组 -->
         <div class="card-actions" @click.stop>
           <el-tooltip content="编辑" placement="top">
             <el-button circle size="small" :icon="Edit" type="primary" @click="openEditDialog(agent)" />
@@ -36,7 +35,7 @@
           </div>
           <p class="agent-desc">{{ agent.description || '暂无描述' }}</p>
           <div class="agent-meta">
-            <span><el-icon><Document /></el-icon> {{ agent.modelName || '-' }}</span>
+            <span><el-icon><Document /></el-icon> {{ agent.agentTypeLabel || getAgentTypeLabel(agent.agentType) }}</span>
             <span><el-icon><Timer /></el-icon> {{ formatDate(agent.createTime) }}</span>
           </div>
         </div>
@@ -51,7 +50,6 @@
         @closed="handleFormDialogClose"
     >
       <el-tabs v-model="formActiveTab">
-        <!-- 基本信息 -->
         <el-tab-pane label="基本信息" name="basic">
           <el-form :model="formData" :rules="formRules" ref="formRef" label-width="120px">
             <el-form-item label="Agent名称" prop="agentName">
@@ -69,27 +67,17 @@
               </el-select>
             </el-form-item>
 
-            <el-form-item label="模型" prop="modelConfigId">
-              <el-select
-                  v-model="formData.modelConfigId"
-                  placeholder="请选择模型"
-                  filterable
-                  :loading="modelLoading"
-                  clearable
-              >
-                <el-option
-                    v-for="model in modelList"
-                    :key="model.id"
-                    :label="`${model.configName} (${getModelTypeLabel(model.type)})`"
-                    :value="model.id"
-                >
-                  <span style="float: left">{{ model.configName }}</span>
-                  <span style="float: right; color: #8492a6; font-size: 13px">
-                    {{ getModelTypeLabel(model.type) }}
-                  </span>
-                </el-option>
-              </el-select>
-              <div class="form-tip">选择系统中已配置的模型</div>
+            <!-- 移除了模型选择下拉框，直接显示系统模型信息 -->
+            <el-form-item label="使用模型">
+              <el-tag type="primary" v-if="systemChatModelInfo">
+                <el-icon><Cpu /></el-icon>
+                {{ systemChatModelInfo.modelName || systemChatModelInfo.modelKey }}
+              </el-tag>
+              <el-tag v-else type="info">
+                <el-icon><Warning /></el-icon>
+                未配置系统模型
+              </el-tag>
+              <div class="form-tip">Agent 将使用系统统一配置的模型</div>
             </el-form-item>
 
             <el-form-item label="Temperature" prop="temperature">
@@ -122,7 +110,6 @@
                   </el-button>
                 </div>
 
-                <!-- 生成结果显示 -->
                 <div v-if="generatedPrompt" class="generated-prompt">
                   <el-alert
                       :title="`生成的提示词 (置信度: ${generatedConfidence}%)`"
@@ -276,7 +263,12 @@
             <el-descriptions :column="2" border>
               <el-descriptions-item label="Agent名称">{{ currentAgent?.agentName }}</el-descriptions-item>
               <el-descriptions-item label="类型">{{ getAgentTypeLabel(currentAgent?.agentType) }}</el-descriptions-item>
-              <el-descriptions-item label="模型">{{ currentAgent?.modelName || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="使用模型">
+                <el-tag type="primary" v-if="systemChatModelInfo">
+                  {{ systemChatModelInfo.modelName || systemChatModelInfo.modelKey }}
+                </el-tag>
+                <span v-else>-</span>
+              </el-descriptions-item>
               <el-descriptions-item label="Temperature">{{ currentAgent?.temperature }}</el-descriptions-item>
               <el-descriptions-item label="Max Tokens">{{ currentAgent?.maxTokens }}</el-descriptions-item>
               <el-descriptions-item label="状态">
@@ -390,7 +382,6 @@
 
     <!-- 知识库选择器对话框（用于创建/编辑） -->
     <el-dialog v-model="showFormKbSelector" title="选择知识库" width="600px">
-      <!-- 添加加载状态 -->
       <div v-loading="kbListLoading" element-loading-text="正在加载知识库列表...">
         <el-table
             :data="knowledgeBases"
@@ -477,53 +468,38 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, computed } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Cpu, Document, Timer, Delete, MagicStick, CopyDocument, Select, Refresh, Edit } from '@element-plus/icons-vue'
+import { Plus, Cpu, Document, Timer, Delete, MagicStick, CopyDocument, Select, Refresh, Edit, Warning } from '@element-plus/icons-vue'
 import { agentApi } from '@/api/agent'
 import { ragApi } from '@/api/rag'
 import { promptApi } from '@/api/prompt'
-import { modelConfigApi } from '@/api/chat'
+import { systemModelApi } from '@/api/chat'
 
-// ==================== 通用状态 ====================
-const agents = ref([])
+// ==================== 系统模型配置 ====================
+const systemChatModelInfo = ref(null)
 
-// ==================== 模型相关 ====================
-const modelList = ref([])
-const modelLoading = ref(false)
-// 创建模型 ID 到模型对象的映射，用于快速查找
-const modelMap = ref(new Map())
-
-// 加载模型列表
-const loadModelList = async () => {
-  modelLoading.value = true
+// 加载系统配置的模型
+const loadSystemChatModel = async () => {
   try {
-    const res = await modelConfigApi.getEnabledConfigs()
-    if (res.code === 200 && res.data) {
-      modelList.value = res.data
-      // 构建模型 ID 到模型对象的映射
-      modelMap.value.clear()
-      res.data.forEach(model => {
-        modelMap.value.set(model.id, model)
-      })
-      console.log('加载模型列表成功，共', modelList.value.length, '个模型')
+    const res = await systemModelApi.getCapabilities()
+    if (res.code === 200 && res.data?.chat?.modelConfigId) {
+      systemChatModelInfo.value = {
+        modelConfigId: res.data.chat.modelConfigId,
+        modelName: res.data.chat.modelName,
+        modelKey: res.data.chat.modelKey
+      }
     } else {
-      console.warn('模型列表为空或加载失败')
+      ElMessage.warning('未配置系统大语言模型，请先在设置中配置')
     }
   } catch (error) {
-    console.error('加载模型列表失败:', error)
-    ElMessage.error('加载模型列表失败')
-  } finally {
-    modelLoading.value = false
+    console.error('加载系统模型失败:', error)
+    ElMessage.warning('加载系统模型配置失败')
   }
 }
 
-// 根据模型 ID 获取模型名称
-const getModelNameById = (modelConfigId) => {
-  if (!modelConfigId) return '-'
-  const model = modelMap.value.get(modelConfigId)
-  return model ? model.configName : `模型ID:${modelConfigId}`
-}
+// ==================== 通用状态 ====================
+const agents = ref([])
 
 // ==================== Agent 类型中文化映射 ====================
 const getAgentTypeLabel = (type) => {
@@ -536,19 +512,6 @@ const getAgentTypeLabel = (type) => {
     'translation': '翻译助手'
   }
   return typeMap[type] || type
-}
-
-const getModelTypeLabel = (type) => {
-  const labels = {
-    modelScope: 'ModelScope',
-    openai: 'OpenAI',
-    ollama: 'Ollama',
-    qwen: '通义千问',
-    ernie: '文心一言',
-    spark: '讯飞星火',
-    zhipu: '智谱AI'
-  }
-  return labels[type] || type
 }
 
 const formatDate = (date) => {
@@ -570,11 +533,10 @@ const formSubmitting = ref(false)
 const formActiveTab = ref('basic')
 const formRef = ref()
 
-// 表单数据
+// 表单数据（移除了 modelConfigId）
 const formData = ref({
   agentName: '',
   agentType: 'chat',
-  modelConfigId: null,
   temperature: 0.7,
   maxTokens: 2000,
   systemPrompt: '',
@@ -585,7 +547,6 @@ const formData = ref({
 const formRules = {
   agentName: [{ required: true, message: '请输入Agent名称', trigger: 'blur' }],
   agentType: [{ required: true, message: '请选择Agent类型', trigger: 'change' }],
-  modelConfigId: [{ required: true, message: '请选择模型', trigger: 'change' }],
   systemPrompt: [{ required: true, message: '请输入系统提示词', trigger: 'blur' }]
 }
 
@@ -745,11 +706,6 @@ const openCreateDialog = () => {
 }
 
 const openEditDialog = async (agent) => {
-  // 确保模型列表已加载
-  if (modelList.value.length === 0) {
-    await loadModelList()
-  }
-
   showFormDialog.value = true
   editingAgent.value = agent
   formSubmitting.value = false
@@ -761,18 +717,10 @@ const openEditDialog = async (agent) => {
       const fullAgent = res.data
       editingAgent.value = fullAgent
 
-      // 根据 modelName 查找对应的 modelConfigId
-      let modelConfigId = null
-      if (fullAgent.modelName) {
-        const foundModel = modelList.value.find(m => m.configName === fullAgent.modelName)
-        modelConfigId = foundModel ? foundModel.id : null
-      }
-
-      // 加载表单数据
+      // 加载表单数据（不再需要 modelConfigId）
       formData.value = {
         agentName: fullAgent.agentName || '',
         agentType: fullAgent.agentType || 'chat',
-        modelConfigId: modelConfigId,  // 设置找到的模型ID
         temperature: fullAgent.temperature ?? 0.7,
         maxTokens: fullAgent.maxTokens || 2000,
         systemPrompt: fullAgent.systemPrompt || '',
@@ -802,7 +750,6 @@ const resetForm = () => {
   formData.value = {
     agentName: '',
     agentType: 'chat',
-    modelConfigId: null,
     temperature: 0.7,
     maxTokens: 2000,
     systemPrompt: '',
@@ -852,17 +799,10 @@ const submitAgentForm = async () => {
   formSubmitting.value = true
 
   try {
-    // 根据选中的模型ID，获取模型名称
-    let modelName = ''
-    if (formData.value.modelConfigId) {
-      const selectedModel = modelList.value.find(m => m.id === formData.value.modelConfigId)
-      modelName = selectedModel ? selectedModel.configName : ''
-    }
-
+    // 提交时不再传递 modelName，后端会从系统配置读取
     const submitData = {
       agentName: formData.value.agentName,
       agentType: formData.value.agentType,
-      modelName: modelName,  // 存储模型名称到 modelName 字段
       temperature: formData.value.temperature,
       maxTokens: formData.value.maxTokens,
       systemPrompt: formData.value.systemPrompt,
@@ -911,11 +851,10 @@ const openKbSelector = async () => {
     return
   }
 
-  // 显示加载提示
   const loadingInstance = ElMessage({
     message: '正在加载知识库列表...',
     type: 'info',
-    duration: 0,  // 不自动关闭
+    duration: 0,
     showClose: false
   })
 
@@ -923,7 +862,6 @@ const openKbSelector = async () => {
     await loadKnowledgeBases()
     loadingInstance.close()
 
-    // 如果知识库列表为空，给用户提示
     if (knowledgeBases.value.length === 0) {
       ElMessage.warning('暂无可用知识库，请先创建知识库')
     }
@@ -1168,7 +1106,7 @@ const handleDetailDialogClose = () => {
 
 onMounted(() => {
   loadAgents()
-  loadModelList()
+  loadSystemChatModel()
 })
 </script>
 

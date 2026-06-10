@@ -1,0 +1,44 @@
+server:
+  port: 8089
+
+spring:
+  application:
+    name: dify-model-provider
+
+  # 数据库配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 使用 Docker 容器名连接 MySQL（假设 MySQL 容器名为 mysql）
+    url: jdbc:mysql://mysql:3306/agent?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+  # 必须配置！让JdbcTemplate可用
+  jdbc:
+    template:
+      query-timeout: 3
+
+# Feign 超时配置（解决 Read timed out）
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 300000    # 5分钟
+        readTimeout: 1200000      # 20分钟！足够模型推理
+
+# MyBatis-Plus
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://dify-eureka-server:8085/eureka/  # 注册到中心
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}

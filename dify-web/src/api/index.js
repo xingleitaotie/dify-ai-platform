@@ -20,7 +20,7 @@ export { agentApi } from './agent'
 export { promptApi } from './prompt'
 
 // SSE 流式处理
-export { SSEHandler, streamChat } from './sse'
+export { streamChat } from './sse'
 
 // 请求实例（用于特殊场景）
 export { default as request } from './request'

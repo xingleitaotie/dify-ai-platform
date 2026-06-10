@@ -65,4 +65,7 @@ public class PromptTemplateEntity {
     private Integer useCount;
     
     private Integer rating;
+
+    @TableField("vector_store_name")
+    private String vectorStoreName;
 }

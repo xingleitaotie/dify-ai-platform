@@ -14,7 +14,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * RAG控制器 - Day2 文档上传+分块
@@ -35,11 +38,10 @@ public class RagController {
     @PostMapping("/upload")
     public ResponseEntity<Map<String, Object>> uploadDocument(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "kbName", required = false) String kbName) {
+            @RequestParam(value = "kbName") String kbName) {
         long start = System.currentTimeMillis();
         log.info("收到文档上传请求：{}", file.getOriginalFilename());
-        String collectionName = kbName != null && !kbName.isEmpty() ? kbName : "default_knowledge_base";
-        ChunkResult result = chunker.processDocument(file,collectionName);
+        ChunkResult result = chunker.processDocument(file,kbName);
         long elapsed = System.currentTimeMillis() - start;
             // ===== 构建响应 =====
         Map<String, Object> response = new HashMap<>();
@@ -64,36 +66,6 @@ public class RagController {
     public Result<List<Float>> singleEmbedding(@RequestBody EmbeddingDTO dto) {
         log.info("收到单文本向量化请求");
         return Result.success(embeddingFactory.getEmbeddingService().getEmbedding(dto.getText()));
-    }
-
-
-    /**
-     * 直接传入文本内容
-     * 暂未实现指定知识库存储，只会写入默认知识库中
-     */
-    @PostMapping("/text")
-    public ResponseEntity<Map<String, Object>> processText(@RequestBody Map<String, String> request) {
-        String content = request.get("content");
-        String title = request.getOrDefault("title", "文本文档");
-
-        if (content == null || content.isEmpty()) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("error", "内容不能为空");
-            return ResponseEntity.badRequest().body(response);
-        }
-
-        long start = System.currentTimeMillis();
-        ChunkResult result = chunker.processTextContent(content, title);
-        long elapsed = System.currentTimeMillis() - start;
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", result.isSuccess());
-        response.put("documentId", result.getDocumentId());
-        response.put("chunks", result.getChunkCount());
-        response.put("processingTime", elapsed + "ms");
-        response.put("method", "text_api");
-
-        return ResponseEntity.ok(response);
     }
 
     /**
@@ -133,9 +105,13 @@ public class RagController {
         try {
             if (request != null && null != request.get("query") && !"".equals(request.get("query"))) {
                 String query = request.get("query").toString();
-                List<String> kbs = request.get("kbs") == null
-                        ? Collections.singletonList("")
-                        : (List<String>) request.get("kbs");
+                List<String> kbs = Collections.singletonList("");
+                Object kbsObj = request.get("kbs");
+                if (kbsObj instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<String> temp = (List<String>) kbsObj;
+                    kbs = temp;
+                }
                 int topN = request.get("topN") == "5" ? Integer.parseInt(request.get("topN").toString()) : 5;
 
                 // 1. 检索相关文档块
@@ -154,62 +130,128 @@ public class RagController {
     }
 
 
+
+    // ==================== 提示词模板管理接口 ====================
+
     /**
-     * 查看所有存储的块
+     * 存储提示词模板到向量库
      */
-    @GetMapping("/chunks")
-    public ResponseEntity<Map<String, Object>> listAllChunks() {
+    @PostMapping("/prompt-template/store")
+    public Result<Void> storePromptTemplate(@RequestBody Map<String, Object> request) {
         try {
-            List<Map<String, Object>> chunks = vectorStoreFactory.getVectorStoreService().listAllChunks();
+            String templateId = (String) request.get("templateId");
+            String templateName = (String) request.get("templateName");
+            String content = (String) request.get("content");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> metadata = (Map<String, Object>) request.getOrDefault("metadata", new HashMap<>());
 
-            Map<String, Object> result = new HashMap<>();
-            result.put("success", true);
-            result.put("total", chunks.size());
-            result.put("chunks", chunks);
+            if (templateId == null || content == null) {
+                return Result.error("templateId和content不能为空");
+            }
 
-            return ResponseEntity.ok(result);
+            vectorStoreFactory.getVectorStoreService()
+                    .storePromptTemplate(templateId, templateName, content, metadata);
+
+            return Result.success();
 
         } catch (Exception e) {
-            log.error("获取块列表失败", e);
-            Map<String, Object> errorResult = new HashMap<>();
-            errorResult.put("success", false);
-            errorResult.put("error", e.getMessage());
-            return ResponseEntity.internalServerError().body(errorResult);
+            log.error("存储提示词模板失败", e);
+            return Result.error(e.getMessage());
         }
     }
 
     /**
-     * 获取单个块详情
+     * 批量存储提示词模板
      */
-    @GetMapping("/chunks/{chunkId}")
-    public ResponseEntity<Map<String, Object>> getChunkDetail(@PathVariable String chunkId) {
+    @PostMapping("/prompt-template/batch-store")
+    public Result<Void> batchStorePromptTemplates(@RequestBody List<Map<String, Object>> templates) {
         try {
-            Map<String, Object> detail = vectorStoreFactory.getVectorStoreService().getChunkDetail(chunkId);
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("success", true);
-            result.put("chunk", detail);
-
-            return ResponseEntity.ok(result);
-
+            vectorStoreFactory.getVectorStoreService().batchStorePromptTemplates(templates);
+            return Result.success();
         } catch (Exception e) {
-            log.error("获取块详情失败: {}", chunkId, e);
-            Map<String, Object> errorResult = new HashMap<>();
-            errorResult.put("success", false);
-            errorResult.put("error", e.getMessage());
-            return ResponseEntity.internalServerError().body(errorResult);
+            log.error("批量存储提示词模板失败", e);
+            return Result.error(e.getMessage());
         }
     }
 
     /**
-     * 删除集合
+     * 删除提示词模板
      */
-    @PostMapping("/vector/clear")
-    public Result<String> clearVector() {
-
-        log.info("开始删除集合");
-        vectorStoreFactory.getVectorStoreService().clearCollection();
-        return Result.success("删除集合成功");
+    @DeleteMapping("/prompt-template/{templateId}")
+    public Result<Void> deletePromptTemplate(@PathVariable String templateId) {
+        try {
+            vectorStoreFactory.getVectorStoreService().deletePromptTemplate(templateId);
+            return Result.success();
+        } catch (Exception e) {
+            log.error("删除提示词模板失败", e);
+            return Result.error(e.getMessage());
+        }
     }
 
+    /**
+     * 批量删除提示词模板
+     */
+    @DeleteMapping("/prompt-template/batch-delete")
+    public Result<Void> batchDeletePromptTemplates(@RequestBody List<String> templateIds) {
+        try {
+            vectorStoreFactory.getVectorStoreService().batchDeletePromptTemplates(templateIds);
+            return Result.success();
+        } catch (Exception e) {
+            log.error("批量删除提示词模板失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 搜索相似提示词模板
+     */
+    @PostMapping("/prompt-template/search")
+    public Result<List<Map<String, Object>>> searchPromptTemplates(@RequestBody Map<String, Object> request) {
+        try {
+            String query = (String) request.get("query");
+            int topK = request.get("topK") != null ? (Integer) request.get("topK") : 5;
+
+            if (query == null || query.trim().isEmpty()) {
+                return Result.error("查询内容不能为空");
+            }
+
+            List<Map<String, Object>> results = vectorStoreFactory.getVectorStoreService()
+                    .searchPromptTemplates(query, topK);
+
+            return Result.success(results);
+
+        } catch (Exception e) {
+            log.error("搜索提示词模板失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取所有提示词模板
+     */
+    @GetMapping("/prompt-template/list")
+    public Result<List<Map<String, Object>>> listAllPromptTemplates() {
+        try {
+            List<Map<String, Object>> templates = vectorStoreFactory.getVectorStoreService()
+                    .listAllPromptTemplates();
+            return Result.success(templates);
+        } catch (Exception e) {
+            log.error("获取提示词模板列表失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取提示词模板数量
+     */
+    @GetMapping("/prompt-template/count")
+    public Result<Integer> getPromptTemplateCount() {
+        try {
+            int count = vectorStoreFactory.getVectorStoreService().getPromptTemplateCount();
+            return Result.success(count);
+        } catch (Exception e) {
+            log.error("获取提示词模板数量失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
 }

@@ -29,5 +29,11 @@ public class ChatRequestDTO {
     
     private List<ChatMessage> history;   // 历史消息（可选）
 
+    // 新增：意图类型（code、chat、rag、creative、data、streaming、general）
+    private String intent;
+
+    // 新增：是否保存上下文
+    private Boolean saveContext = true;
+
 }
 

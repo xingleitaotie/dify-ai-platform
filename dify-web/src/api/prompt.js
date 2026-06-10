@@ -1,66 +1,92 @@
-// src/api/prompt.js
 import request from './request'
 
 export const promptApi = {
-    // 生成提示词
-    generate(data) {
-        return request.post('/prompt/generate', data)
-    },
+    // ==================== 模板管理（已有接口）====================
 
-    // 保存模板
-    saveTemplate(data) {
-        return request.post('/prompt/template', data)
-    },
-
-    // 更新模板
-    updateTemplate(id, data) {
-        return request.put(`/prompt/template/${id}`, data)
-    },
-
-    // 获取模板详情
-    getTemplate(id) {
-        return request.get(`/prompt/template/${id}`)
-    },
-
-    // 获取模板列表
     listTemplates() {
         return request.get('/prompt/templates')
     },
 
-    // 分页获取模板
-    pageTemplates(params) {
-        return request.get('/prompt/templates/page', { params })
+    getTemplate(id) {
+        return request.get(`/prompt/template/${id}`)
     },
 
-    // 删除模板
+    saveTemplate(data) {
+        return request.post('/prompt/template', data)
+    },
+
+    updateTemplate(id, data) {
+        return request.put(`/prompt/template/${id}`, data)
+    },
+
     deleteTemplate(id) {
         return request.delete(`/prompt/template/${id}`)
     },
 
-    // 测试模板
-    testTemplate(id, context) {
-        return request.post(`/prompt/template/${id}/test`, context)
-    },
-
-    // 复制模板
-    copyTemplate(id, newName) {
-        return request.post(`/prompt/template/${id}/copy`, null, { params: { newName } })
-    },
-
-    // 设置状态
     setStatus(id, status) {
-        return request.put(`/prompt/template/${id}/status`, null, {
-            params: { status }
-        })
+        return request.put(`/prompt/template/${id}/status?status=${status}`)
     },
 
-    // 按类型获取模板
-    getTemplatesByType(type) {
-        return request.get('/prompt/templates/by-type', { params: { type } })
+    copyTemplate(id, newName) {
+        return request.post(`/prompt/template/${id}/copy?newName=${newName}`)
     },
 
-    // 搜索模板
-    searchTemplates(keyword) {
-        return request.get('/prompt/templates/search', { params: { keyword } })
+    generate(data) {
+        return request.post('/prompt/generate', data)
+    },
+
+    syncAllToVector() {
+        return request.post('/prompt/templates/sync-to-vector')
+    },
+
+    route(data) {
+        return request.post('/prompt/route', data)
+    },
+
+    // ==================== 向量库操作（新增接口）====================
+
+    /**
+     * 获取向量库中的所有模板
+     */
+    listAllPromptTemplates() {
+        return request.get('/prompt/vector/templates')
+    },
+
+    /**
+     * 获取向量库中的模板数量
+     */
+    getPromptTemplateCount() {
+        return request.get('/prompt/vector/count')
+    },
+
+    /**
+     * 向量检索相似模板
+     * @param {Object} data { query: string, topK?: number }
+     */
+    searchPromptTemplates(data) {
+        return request.post('/prompt/vector/search', data)
+    },
+
+    /**
+     * 强制重新同步（清空后重新同步）
+     */
+    forceResync() {
+        return request.post('/prompt/vector/resync')
+    },
+
+    /**
+     * 同步单个模板到向量库
+     * @param {string} templateId 模板ID
+     */
+    syncTemplateToVector(templateId) {
+        return request.post(`/prompt/vector/sync/${templateId}`)
+    },
+
+    /**
+     * 从向量库删除模板
+     * @param {string} templateId 模板ID
+     */
+    deleteVectorTemplate(templateId) {
+        return request.delete(`/prompt/vector/template/${templateId}`)
     }
 }

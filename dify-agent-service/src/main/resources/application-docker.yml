@@ -31,15 +31,15 @@ spring:
     async:
       request-timeout: -1
 
+# MyBatis-Plus
 mybatis-plus:
-  type-aliases-package: com.washy.dify.agent.domain.entity
+  mapper-locations: classpath:mapper/*.xml
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-
-# 内部服务调用（Docker 服务名）
-function:
-  service-url: http://dify-function-service:8083
+  global-config:
+    db-config:
+      id-type: auto
 
 llm:
   service-url: http://dify-llm-service:8081

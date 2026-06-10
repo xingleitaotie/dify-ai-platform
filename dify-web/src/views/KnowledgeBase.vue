@@ -241,23 +241,22 @@
                     show-icon
                 />
 
-                <!-- 大模型选择 -->
+                <!-- 在向量检索 Tab 中，修改使用模型部分 -->
                 <el-form-item label="使用模型" style="margin-top: 16px">
-                  <el-select
-                      v-model="searchModelConfigId"
-                      placeholder="请选择用于生成回答的大模型"
-                      filterable
-                      clearable
-                      style="width: 100%"
-                      @change="onSearchModelChange"
-                  >
-                    <el-option
-                        v-for="model in modelList"
-                        :key="model.id"
-                        :label="`${model.configName} (${getModelTypeLabel(model.type)})`"
-                        :value="model.id"
-                    />
-                  </el-select>
+                  <div class="model-info-wrapper">
+                    <div class="model-badge" v-if="currentChatModelInfo">
+                      <el-icon><Cpu /></el-icon>
+                      <span class="model-name">{{ currentChatModelInfo.modelName }}</span>
+                      <span class="model-provider" v-if="currentChatModelInfo.providerName">
+        ({{ currentChatModelInfo.providerName }})
+      </span>
+                    </div>
+                    <div class="model-badge model-badge-warning" v-else>
+                      <el-icon><Warning /></el-icon>
+                      <span>未配置模型</span>
+                    </div>
+                    <div class="model-tip">使用系统配置的大语言模型进行检索回答</div>
+                  </div>
                 </el-form-item>
 
                 <el-input
@@ -358,7 +357,45 @@ import {
   MoreFilled, Grid, CopyDocument, ArrowDown, ArrowRight
 } from '@element-plus/icons-vue'
 import { ragApi } from '@/api/rag'
-import { modelConfigApi } from '@/api/chat'
+import { systemModelApi } from '@/api/modelConfig'
+
+// ==================== 模型相关 - 使用系统配置 ====================
+const currentChatModelId = ref(null)
+const currentChatModelInfo = ref(null)
+const modelLoading = ref(false)
+const searchModelConfigId = ref(null)  // 添加这一行
+const searchUsedModel = ref('')         // 添加这一行
+
+// 加载系统配置的大语言模型
+const loadSystemChatModel = async () => {
+  modelLoading.value = true
+  try {
+    const res = await systemModelApi.getCapabilities()
+    if (res.code === 200 && res.data) {
+      const chatCapability = res.data.chat
+      if (chatCapability && chatCapability.modelConfigId) {
+        currentChatModelId.value = chatCapability.modelConfigId
+        currentChatModelInfo.value = {
+          id: chatCapability.modelConfigId,
+          modelName: chatCapability.modelName || chatCapability.modelKey,
+          modelKey: chatCapability.modelKey,
+          providerName: chatCapability.providerName,
+          capabilityType: 'chat'
+        }
+        // 自动选中当前模型用于检索
+        searchModelConfigId.value = chatCapability.modelConfigId
+        searchUsedModel.value = currentChatModelInfo.value.modelName
+        console.log('加载系统大语言模型成功:', currentChatModelInfo.value)
+      } else {
+        ElMessage.warning('未配置系统大语言模型，请先在设置中配置')
+      }
+    }
+  } catch (error) {
+    console.error('加载系统模型失败:', error)
+  } finally {
+    modelLoading.value = false
+  }
+}
 
 // 添加知识库菜单命令处理
 const handleKbCommand = (command, kb) => {
@@ -400,30 +437,6 @@ const handleDocCommand = (command, doc) => {
   }
 }
 
-// ==================== 模型相关 ====================
-const modelList = ref([])
-const searchModelConfigId = ref(null)
-const searchUsedModel = ref('')
-
-// 加载模型列表
-const loadModelList = async () => {
-  try {
-    const res = await modelConfigApi.getEnabledConfigs()
-    console.log('模型列表响应:', res)
-
-    if (res.code === 200 && res.data && res.data.length > 0) {
-      modelList.value = res.data
-      // 如果有默认配置，自动选中
-      const defaultModel = modelList.value.find(m => m.isDefault === 1)
-      if (defaultModel) {
-        searchModelConfigId.value = defaultModel.id
-      }
-    }
-  } catch (error) {
-    console.error('加载模型列表失败:', error)
-  }
-}
-
 // 获取模型类型显示名称
 const getModelTypeLabel = (type) => {
   const labels = {
@@ -436,19 +449,6 @@ const getModelTypeLabel = (type) => {
     zhipu: '智谱AI'
   }
   return labels[type] || type
-}
-
-// 模型选择变更
-const onSearchModelChange = (configId) => {
-  console.log('检索模型变更:', configId)
-  if (configId) {
-    const model = modelList.value.find(m => m.id === configId)
-    if (model) {
-      searchUsedModel.value = `${model.configName} (${model.modelName})`
-    }
-  } else {
-    searchUsedModel.value = ''
-  }
 }
 
 // ==================== 知识库相关 ====================
@@ -531,11 +531,15 @@ const loadKnowledgeBases = async () => {
   loading.value = true
   try {
     const res = await ragApi.getKnowledgeBases()
-    if (res.code === 200 && res.data && res.data.length > 0) {
-      knowledgeBases.value = res.data
+    if (res.code === 200 && res.data) {
+      // 过滤掉系统模板库
+      knowledgeBases.value = res.data.filter(kb => kb.name !== 'prompt_templates')
+    } else {
+      knowledgeBases.value = []
     }
   } catch (error) {
     console.error('加载知识库列表失败', error)
+    knowledgeBases.value = []
   } finally {
     loading.value = false
   }
@@ -795,6 +799,12 @@ const testSearch = async () => {
   }
   if (!currentKB.value) return
 
+  // 检查是否配置了模型
+  if (!currentChatModelId.value) {
+    ElMessage.warning('未配置系统大语言模型，请先在设置中配置')
+    return
+  }
+
   if (cancelTokenSource) cancelTokenSource.cancel('新请求开始')
 
   searching.value = true
@@ -809,17 +819,14 @@ const testSearch = async () => {
   }, 2000)
 
   try {
-    // 构建请求参数，包含模型配置ID
+    // 构建请求参数，使用系统配置的模型ID
     const requestData = {
       text: searchQuery.value.trim(),
-      topN: 5
+      topN: 5,
+      configId: currentChatModelId.value  // 直接使用系统配置的模型ID
     }
 
-    // 如果选择了模型，传递模型配置ID
-    if (searchModelConfigId.value) {
-      requestData.configId = searchModelConfigId.value
-      console.log('检索使用模型配置ID:', searchModelConfigId.value)
-    }
+    console.log('检索使用模型配置ID:', currentChatModelId.value)
 
     const res = await ragApi.searchInKb(currentKB.value.name, requestData)
 
@@ -868,7 +875,7 @@ const testSearch = async () => {
 
 // ==================== 生命周期 ====================
 onMounted(async () => {
-  await loadModelList()
+  await loadSystemChatModel()  // 先加载系统模型
   await loadKnowledgeBases()
   if (knowledgeBases.value.length > 0) {
     selectKnowledgeBase(knowledgeBases.value[0])
@@ -1699,5 +1706,50 @@ const uploadToKb = (kb) => {
   .header-details h2 {
     font-size: 16px;
   }
+}
+
+/* ========== 模型显示样式 ========== */
+.model-info-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.08));
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 24px;
+  font-size: 13px;
+  color: #a78bfa;
+}
+
+.model-badge .el-icon {
+  font-size: 14px;
+}
+
+.model-badge .model-name {
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.model-badge .model-provider {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.model-badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+.model-tip {
+  font-size: 12px;
+  color: #64748b;
 }
 </style>

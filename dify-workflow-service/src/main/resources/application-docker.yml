@@ -30,12 +30,15 @@ spring:
     loadbalancer:
       enabled: true
 
+# MyBatis-Plus
 mybatis-plus:
-  mapper-locations: classpath*:mapper/**/*.xml
-  type-aliases-package: com.dify.prompt.entity
+  mapper-locations: classpath:mapper/*.xml
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
 
 eureka:
   client:

@@ -1,6 +1,6 @@
 package com.washy.dify.prompt.editor;
 
-import com.washy.dify.prompt.entity.PromptTemplateVO;
+import com.washy.dify.common.entity.prompt.PromptTemplateVO;
 
 import java.util.List;
 import java.util.Map;

@@ -1,6 +1,6 @@
 package com.washy.dify.prompt.version;
 
-import com.washy.dify.prompt.entity.PromptTemplateVO;
+import com.washy.dify.common.entity.prompt.PromptTemplateVO;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

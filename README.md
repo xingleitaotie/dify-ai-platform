@@ -1,133 +1,341 @@
+
+
 # Dify AI Platform (Java 微服务版)
 
-## 📖 项目简介
+## 项目简介
 
-Dify AI Platform 是一个基于 Java  Spring Cloud 架构的 AI 应用开发平台，提供可视化的工作流编排、Agent 智能体、RAG 检索增强生成、Function Calling、提示词工程等核心能力。  
-本项目是 Dify 的 Java 技术栈实现，采用微服务架构，支持高并发、可扩展的企业级 AI 应用落地。
+Dify AI Platform 是基于 Java Spring Cloud 架构构建的企业级 AI 应用开发平台。平台采用微服务架构设计，提供了可视化工作流编排、智能体（Agent）、RAG（检索增强生成）、Function Calling、提示词工程等核心能力，旨在帮助开发者快速构建和部署各类 AI 应用。
 
----
+本项目是 Dify 的完整 Java 技术栈实现，通过 Spring Cloud Netflix Eureka 实现服务注册与发现，采用 Spring Cloud Gateway 作为统一网关，支持高并发、可扩展的企业级 AI 应用场景。前端使用 Vue 3 + Vite + Element Plus 构建，提供现代化用户体验。
 
-## 🏗️ 技术栈
-
-| 类型       | 技术选型                                                                 |
-|-----------|--------------------------------------------------------------------------|
-| 框架       | Spring Boot 2.7 / Spring Cloud 2021.x                                    |
-| 服务发现   | Netflix Eureka                                                           |
-| 网关       | Spring Cloud Gateway + 限流 + 跨域                                       |
-| 持久层     | MyBatis-Plus + MySQL                                                     |
-| 向量数据库 | Chroma（可替换为 Milvus / Qdrant）                                       |
-| LLM 接入   | 支持 OpenAI、阿里通义、本地模型（通过统一适配层）                          |
-| 前端       | Vue 3 + Vite + Element Plus                                              |
-| 容器化     | Docker + Docker Compose                                                  |
+> **注意**：请确保在使用前配置好大模型 API 密钥（如魔塔社区模型）和向量数据库连接（如本地 Ollama）。
 
 ---
 
-## 📦 模块说明
+## 技术架构
 
-| 模块名                 | 端口   | 功能描述                                                                 |
-|----------------------|------|--------------------------------------------------------------------------|
-| dify-eureka-service  | 8085 | 服务注册与发现中心                                                       |
-| dify-api-gateway     | 9000 | 统一入口、路由、白名单、限流、跨域                                       |
-| dify-user-service    | 8086 | 用户注册/登录、应用管理（AppKey/Secret）                                 |
-| dify-llm-service     | 8081 | 普通对话、条件对话、RAG 对话、Function Calling、流式 SSE                  |
-| dify-rag-service     | 8082 | 文档上传、文本分块、向量化、向量检索、Chunks 管理                         |
-| dify-function-service| 8083 | 工具注册、Function 列表、Function 调用执行                               |
-| dify-agent-service   | 8084 | Agent 配置、知识库绑定、工具绑定、Agent 执行/对话/流式对话                |
-| dify-prompt-engine   | 8087 | 根据需求自动生成提示词、提示词模板 CRUD、测试、复制、状态管理              |
-| dify-workflow-service| 8088 | 工作流编排（开始/结束/LLM/RAG/Agent/Function/条件）、执行、发布、历史查询 |
-| dify-common          | -    | 通用实体、工具类、异常处理                                               |
-| dify-feign-api       | -    | Feign 公共接口（供服务间调用）                                           |
-| dify-web             | 3000 | Vue3 前端项目，提供可视化界面                                             |
+### 后端技术栈
+
+| 层级 | 技术选型 | 说明 |
+|------|---------|------|
+| 核心框架 | Spring Boot 2.7.x / Spring Cloud 2021.x | 提供微服务基础架构 |
+| 服务治理 | Netflix Eureka | 服务注册与发现中心 |
+| API 网关 | Spring Cloud Gateway | 统一路由入口、限流、跨域处理 |
+| 持久层 | MyBatis-Plus + MySQL | ORM 框架与关系型数据库 |
+| 向量存储 | Chroma（默认） | 支持替换为 Milvus、Qdrant 等 |
+| 大语言模型 | OpenAI、通义千问、Ollama、本地模型 | 统一的 LLM 适配层 |
+| 缓存层 | Redis + Redisson | 会话缓存与分布式锁 |
+| 任务调度 | JDK Scheduled | 定时同步对话历史等 |
+
+### 前端技术栈
+
+| 技术 | 用途 |
+|------|------|
+| Vue 3 | 渐进式前端框架 |
+| Vite | 开发服务器与构建工具 |
+| Element Plus | UI 组件库 |
+| Axios | HTTP 请求客户端 |
+
+### 基础设施
+
+| 组件 | 要求版本 |
+|------|----------|
+| JDK | 1.8+ |
+| Maven | 3.6+ |
+| MySQL | 8.0+ |
+| Redis | 5.0+ |
+| Docker | 20.10+ （可选） |
+| Docker Compose | 1.29+ （可选） |
 
 ---
 
-## 🚀 快速开始
+## 模块概览
 
-### 一、 环境要求
+本项目采用模块化设计，各服务独立部署、协同工作。
 
-- JDK 1.8+
-- Maven 3.6+
-- MySQL 8.0+
-- Docker & Docker Compose（可选）
-- Chroma 向量数据库（或修改配置使用其他）
+### 服务端模块
 
-### 二、项目启动
-### 方式一 :  本地运行（按顺序启动）
+| 模块 | 端口 | 功能描述 |
+|------|------|----------|
+| dify-eureka-service | 8085 | Netflix Eureka 服务注册与发现中心 |
+| dify-api-gateway | 9000 | 统一网关：路由转发、认证鉴权、限流、跨域 |
+| dify-user-service | 8086 | 用户管理：注册登录、AppKey/Secret 应用凭证 |
+| dify-llm-service | 8081 | LLM 服务：普通对话、条件对话、RAG 对话、Function Calling、流式 SSE |
+| dify-rag-service | 8082 | RAG 服务：文档处理、文本分块、向量化存储、向量检索、Chunks 管理 |
+| dify-function-service | 8083 | 函数服务：工具注册、函数列表、动态调用执行 |
+| dify-agent-service | 8084 | Agent 服务：智能体配置、知识库绑定、工具绑定、对话执行 |
+| dify-prompt-engine | 8087 | 提示词引擎：自动生成提示词、模板 CRUD、版本管理 |
+| dify-workflow-service | 8088 | 工作流服务：可视化编排、执行跟踪、历史查询 |
 
-#### 1. 安装依赖
-mvn clean install
+### 公共模块
 
-#### 2. 启动Eureka服务注册中心
+| 模块 | 说明 |
+|------|------|
+| dify-common | 公共实体、工具类、统一异常处理 |
+| dify-feign-api | Feign 客户端接口定义，供服务间 RPC 调用 |
+| dify-web | Vue 3 + Vite 前端项目 |
+
+---
+
+## 快速开始
+
+### 环境准备
+
+确保本地已安装以下软件：
+
+```bash
+# 查看 Java 版本
+java -version
+
+# 查看 Maven 版本
+mvn -version
+
+# 查看 MySQL 版本
+mysql --version
+
+# 查看 Docker 版本（可选）
+docker --version
+```
+
+### 方式一：本地运行
+
+#### 第一步：编译项目
+
+```bash
+mvn clean install -DskipTests
+```
+
+#### 第二步：启动服务（按顺序）
+
+建议按以下顺序启动各微服务：
+
+```bash
+# 1. 启动 Eureka 注册中心
 cd dify-eureka-service
 mvn spring-boot:run
 
-#### 3. 启动其他服务（按需启动）
-- cd ../dify-llm-service && mvn spring-boot:run
-- cd ../dify-rag-service && mvn spring-boot:run
-- cd ../dify-function-service && mvn spring-boot:run
-- cd ../dify-agent-service && mvn spring-boot:run
-- cd ../dify-prompt-engine && mvn spring-boot:run
-- cd ../dify-workflow-service && mvn spring-boot:run
-- cd ../dify-api-gateway && mvn spring-boot:run
-- cd ../dify-user-service && mvn spring-boot:run
+# 2. 启动其他核心服务（可并行或按需启动）
+cd dify-user-service && mvn spring-boot:run
+cd dify-llm-service && mvn spring-boot:run
+cd dify-rag-service && mvn spring-boot:run
+cd dify-function-service && mvn spring-boot:run
+cd dify-agent-service && mvn spring-boot:run
+cd dify-prompt-engine && mvn spring-boot:run
+cd dify-workflow-service && mvn spring-boot:run
 
-#### 4. dify-web启动
-- cd dify-web
-- npm install
-- npm run dev
+# 3. 启动网关（最后启动）
+cd dify-api-gateway && mvn spring-boot:run
+```
 
+#### 第三步：启动前端
 
-### 方式二 ：Docker Compose一键部署
-- cd dify-ai-platform
-- mvn clean
-- cd docker
-- docker-compose build --no-cache
-- docker-compose up -d
-- docker-compose logs -f
+```bash
+cd dify-web
+npm install
+npm run dev
+```
 
-# 项目情况及功能说明
-1. 项目大模型使用的是魔塔社区的免费LLM
-2. 向量大模型是基于本地ollama搭建的nomic-embed-text
-3. 工作流目前已经测试了LLM和RAG节点，**注意**输入必须是query，下一节点输出字段必须是{{input.query}}，后面的节点可以根据大模型输出选择
-4. 目前实现了大模型对话、agent、rag、prompt、function、workflow（部分功能）等功能
-5. rag工程可以实现对上传的文档按照段落或者章节进行分块，同时涉及的图片目前是保存到本地文件夹，后期可以放到对象存储中，对于涉及的表格，是转化成md格式进行存储
+访问 `http://localhost:3000` 即可打开控制台界面。
 
-# 常见问题
-* Q: 服务启动失败，提示数据库连接错误？
-* A: 检查MySQL是否启动，确认application.yml中的数据库配置正确。
+### 方式二：Docker Compose 一键部署
 
-* Q: 接口返回401未授权？
-* A: 检查请求头是否携带token，或确认接口是否在网关白名单中。
+```bash
+# 进入项目根目录
+cd dify-ai-platform
 
-* Q: 流式对话没有响应？
-* A: 确认前端EventSource配置正确，后端SseEmitter实现无误。
+# 清理并构建后端
+mvn clean
 
-* Q: RAG检索无结果？
-* A: 确认Chroma向量库已启动，文档已上传并完成向量化。
+# 进入 Docker 编排目录
+cd docker
 
-# 后续规划
-1. 多租户支持
+# 构建镜像
+docker-compose build --no-cache
 
-2. 工作流编排
+# 启动所有服务
+docker-compose up -d
 
-3. 模型管理平台
+# 查看日志
+docker-compose logs -f
+```
 
-4. 更多向量数据库支持（Pinecone、Milvus）
+---
 
-5. 监控告警系统
+## 配置说明
 
-6. API速率限制增强
+### 数据库配置
 
-# 贡献指南
-- 欢迎提交Issue和Pull Request。
+在各服务的 `src/main/resources/application.yml` 中配置数据库连接：
 
-# 许可证
-MIT License
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/dify?useUnicode=true&characterEncoding=utf-8
+    username: root
+    password: your_password
+```
 
-# 联系方式
-项目地址：https://github.com/xingleitaotie/dify-ai-platform.git
+### 大模型配置
 
-问题反馈：hellowangxu@163.com
+默认使用**魔塔社区**的免费 LLM，也可配置其他模型：
 
-**注意**：请确保在使用前配置好大模型API密钥和向量数据库连接。
+```yaml
+dify:
+  llm:
+    type: modelScope  # 模型类型：openai, qwen, ollama, ernie 等
+    modelName: qwen-long  # 模型名称
+    baseUrl: https://dashscope.aliyuncs.com/api/v1  # API 地址
+    apiKey: your_api_key  # API 密钥
+    maxTokens: 2000
+    temperature: 0.7
+```
 
+### 向量数据库配置
+
+默认使用本地 **Ollama** 部署的 `nomic-embed-text` 向量模型：
+
+```yaml
+dify:
+  rag:
+    embeddingType: ollama
+    vectorStoreType: chroma
+    embedding:
+      ollamaBaseUrl: http://localhost:11434
+      ollamaModel: nomic-embed-text
+```
+
+---
+
+## 功能特性
+
+### 已实现功能
+
+#### 1. 普通对话
+支持单轮、多轮对话，会话上下文保持。
+
+#### 2. 条件对话
+根据预设条件动态选择回复策略。
+
+#### 3. RAG 对话
+结合知识库检索结果的问答，可上传 PDF、Word 等文档，系统自动完成：
+- 文档解析（PDF、Word、TXT 等格式）
+- 智能文本分块（按段落或章节）
+- 向量化存储
+- 向量相似度检索
+
+> **说明**：文档中的图片保存至本地文件夹，表格转化为 Markdown 格式存储。
+
+#### 4. Function Calling
+支持扩展工具函数，AI 可自主判断并调用外部工具。内置函数包括：
+- `simpleCalc`：简单加法计算
+- `getCurrentTime`：获取当前时间
+- `getWeather`：获取城市天气
+- `knowledge_search`：RAG 信息搜索
+
+#### 5. Agent 智能体
+- Agent 配置与管理
+- 知识库绑定（多知识库支持）
+- 工具绑定（Function Calling）
+- 对话执行与流式对话
+
+#### 6. 提示词引擎
+- 根据需求自动生成提示词
+- 提示词模板 CRUD
+- 版本管理与回滚
+- 置信度评分
+
+#### 7. 工作流编排（部分）
+- 可视化节点编排：开始 → LLM → RAG → Agent → Function → 条件 → 结束
+- 工作流执行与历史记录
+
+> **注意**：工作流节点输入必须是 `{{input.query}}`，后续节点可根据大模型输出灵活配置。
+
+---
+
+## 常见问题
+
+### 服务启动失败，提示数据库连接错误？
+
+**解决方案**：
+1. 确认 MySQL 已启动：`mysql -u root -p`
+2. 检查 `application.yml` 中的数据库配置是否正确
+3. 创建对应的数据库：`CREATE DATABASE dify;`
+
+### 接口返回 401 未授权？
+
+**解决方案**：
+1. 检查请求头是否携带有效的 Token
+2. 确认接口是否在网关白名单中（`WHITE_LIST` 配置）
+3. Token 过期或格式错误，请重新登录获取
+
+### 流式对话没有响应？
+
+**解决方案**：
+1. 确认前端 EventSource 配置正确（SSE 连接）
+2. 检查后端 SseEmitter 实现和超时设置
+3. 确认大模型 API 可正常访问
+
+### RAG 检索无结果？
+
+**解决方案**：
+1. 确认 Chroma 向量数据库已启动并正常运行
+2. 确认文档已上传并完成向量化（可在知识库页面查看 Chunks）
+3. 检查向量模型是否正常工作
+
+### 前端页面空白或加载失败？
+
+**解决方案**：
+1. 检查 `npm install` 是否成功完成
+2. 确认 `.env.development` 中的 API 地址配置正确
+3. 清除浏览器缓存后重试
+
+---
+
+## 项目规划
+
+以下是未来的功能演进方向，欢迎贡献代码：
+
+| 功能 | 优先级 | 说明 |
+|------|--------|------|
+| 多租户支持 | 高 | 实现租户隔离、数据权限控制 |
+| 工作流完善 | 高 | 完整的可视化编排与调试 |
+| 模型管理平台 | 中 | 统一的模型配置、切换、监控 |
+| 更多向量库 | 中 | Pinecone、Milvus、Qdrant 等支持 |
+| 监控告警 | 低 | 业务指标与系统健康监控 |
+| API 限流增强 | 低 | 细粒度限流与配额管理 |
+
+---
+
+## 贡献指南
+
+欢迎通过以下方式参与项目贡献：
+
+1. **提交 Issue**：报告 Bug 或提出新功能建议
+2. **提交 Pull Request**：修复问题或增加功能
+3. **编写文档**：完善 Wiki 或中文文档
+4. **测试反馈**：体验并提出改进意见
+
+请确保代码符合项目现有的编码风格，并添加适当的单元测试。
+
+---
+
+## 许可证
+
+本项目基于 **MIT License** 开源，你可以自由使用、修改和分发，具体见 LICENSE 文件。
+
+---
+
+## 联系方式
+
+- **项目地址**：https://gitee.com/Whshy/dify-ai-platform
+- **问题反馈**：hellowangxu@163.com
+
+---
+
+## 参考资源
+
+- [Spring Cloud 官方文档](https://spring.io/projects/spring-cloud)
+- [Vue 3 官方文档](https://vuejs.org/)
+- [Element Plus 组件库](https://element-plus.org/)
+- [Chroma 向量数据库](https://www.trychroma.com/)
+- [魔塔社区模型](https://modelscope.cn/)

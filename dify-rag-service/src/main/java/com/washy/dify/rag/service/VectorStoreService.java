@@ -34,11 +34,6 @@ public interface VectorStoreService {
                             String documentId, String documentName);
 
     /**
-     * 删除文档的所有块
-     */
-    void deleteDocumentChunks(String documentId);
-
-    /**
      * 删除指定知识库中对应文档的所有块
      */
     void deleteDocumentChunks(String kbName, String documentId);
@@ -54,42 +49,11 @@ public interface VectorStoreService {
     List<Map<String, Object>> search(String kbName, String query, int topK);
 
 
-    // ==================== 兼容旧接口 ====================
-
-    /**
-     * 将文档块存入默认知识库（兼容旧代码）
-     */
-    int storeDocumentChunks(List<DocumentChunk> chunks, String documentId, String documentName);
-
-    /**
-     * 获取默认知识库的所有分块（兼容旧代码）
-     */
-    List<Map<String, Object>> listAllChunks();
-
-    /**
-     * 在默认知识库中搜索（兼容旧代码）
-     */
-    List<Map<String, Object>> search(String query, int topK);
-
-    /**
-     * 清空默认知识库
-     */
-    void clearCollection();
-
-    /**
-     * 获取单个块详情
-     */
-    Map<String, Object> getChunkDetail(String chunkId);
-
     /**
      * 获取指定知识库的文档列表
      */
     List<Map<String, Object>> getDocuments(String kbId);
 
-    /**
-     * 获取默认知识库配置
-     */
-    Map<String, Object> getDefaultConfig();
 
     /**
      * 更新知识库配置
@@ -100,4 +64,64 @@ public interface VectorStoreService {
      * 获取指定知识库的配置
      */
     Map<String, Object> getConfig(String kbId);
+
+
+    // ==================== 新增：提示词模板专用方法 ====================
+
+    // ==================== 提示词模板专用方法 ====================
+
+    /**
+     * 存储提示词模板到向量库
+     * @param templateId 模板ID
+     * @param templateName 模板名称
+     * @param content 模板内容（用于向量化）
+     * @param metadata 元数据（类型、标签、分类等）
+     */
+    void storePromptTemplate(String templateId, String templateName,
+                             String content, Map<String, Object> metadata);
+
+    /**
+     * 批量存储提示词模板
+     */
+    void batchStorePromptTemplates(List<Map<String, Object>> templates);
+
+    /**
+     * 删除提示词模板向量
+     * @param templateId 模板ID
+     */
+    void deletePromptTemplate(String templateId);
+
+    /**
+     * 批量删除提示词模板
+     */
+    void batchDeletePromptTemplates(List<String> templateIds);
+
+    /**
+     * 搜索相似的提示词模板
+     * @param query 查询文本
+     * @param topK 返回数量
+     * @return 搜索结果（包含模板ID和相似度）
+     */
+    List<Map<String, Object>> searchPromptTemplates(String query, int topK);
+
+    /**
+     * 更新提示词模板向量
+     */
+    void updatePromptTemplate(String templateId, String templateName,
+                              String content, Map<String, Object> metadata);
+
+    /**
+     * 获取所有提示词模板
+     */
+    List<Map<String, Object>> listAllPromptTemplates();
+
+    /**
+     * 获取提示词模板数量
+     */
+    int getPromptTemplateCount();
+
+    /**
+     * 获取提示词模板集合名称
+     */
+    String getPromptTemplateCollectionName();
 }

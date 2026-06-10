@@ -24,4 +24,11 @@ public class StreamChatRequestDTO {
     private Integer maxTokens;       // 最大token（覆盖默认值）
 
     private List<ChatMessage> messages;
+
+    // 新增：意图类型（code、chat、rag、creative、data、streaming、general）
+    private String intent;
+
+    // 新增：是否保存上下文
+    private Boolean saveContext = true;
+
 }

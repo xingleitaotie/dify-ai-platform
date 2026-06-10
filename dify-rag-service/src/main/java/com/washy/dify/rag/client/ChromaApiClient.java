@@ -28,12 +28,6 @@ public class ChromaApiClient {
     private String tenant;
     private String database;
 
-    // 默认集合名称
-    private String defaultCollectionName;
-
-    // 缓存集合ID
-    private final Map<String, String> collectionIdCache = new ConcurrentHashMap<>();
-
     @PostConstruct
     public void init() {
         chromaBaseUrl = String.format("http://%s:%s/api/v2",
@@ -41,10 +35,13 @@ public class ChromaApiClient {
                 ragProperties.getVectorStore().getChromaPort());
         tenant = ragProperties.getVectorStore().getChromaTenant();
         database = ragProperties.getVectorStore().getChromaDatabase();
-        defaultCollectionName = ragProperties.getVectorStore().getChromaCollection();
 
-        log.info("Chroma 客户端初始化完成，默认集合: {}", defaultCollectionName);
+        log.info("Chroma 客户端初始化完成");
     }
+
+
+    // 缓存集合ID
+    private final Map<String, String> collectionIdCache = new ConcurrentHashMap<>();
 
     /**
      * 获取或创建集合
@@ -168,14 +165,6 @@ public class ChromaApiClient {
             log.error("删除集合失败: {}", collectionName, e);
             throw new GlobalExceptionHandler("删除集合失败: " + e.getMessage());
         }
-    }
-
-    /**
-     * 清空默认集合
-     */
-    public void clearCollection() {
-        deleteCollection(defaultCollectionName);
-        createCollection(defaultCollectionName);
     }
 
     /**
@@ -445,20 +434,6 @@ public class ChromaApiClient {
     }
 
     /**
-     * 获取默认知识库配置
-     */
-    public Map<String, Object> getDefaultKbConfig() {
-        Map<String, Object> config = new HashMap<>();
-        config.put("name", defaultCollectionName);
-        config.put("description", "系统默认知识库");
-        config.put("chunkCount", getCollectionCount(defaultCollectionName));
-        config.put("embeddingModel", ragProperties.getEmbedding().getOllamaModel());
-        config.put("chunkSize", 500);
-        config.put("chunkOverlap", 50);
-        return config;
-    }
-
-    /**
      * 更新知识库配置
      */
     public void updateKbConfig(String collectionName, Map<String, Object> config) {
@@ -498,14 +473,6 @@ public class ChromaApiClient {
             throw new RuntimeException("更新知识库配置失败: " + e.getMessage());
         }
     }
-
-    /**
-     * 根据ID查询单条向量详情（兼容旧代码）
-     */
-    public Map<String, Object> getChunkDetail(String chunkId) {
-        return getChunkDetail(defaultCollectionName, chunkId);
-    }
-
 
     /**
      * 根据文档ID删除该文档的所有块
@@ -601,6 +568,147 @@ public class ChromaApiClient {
         } catch (Exception e) {
             log.error("获取文档块ID失败", e);
             return new ArrayList<>();
+        }
+    }
+
+    /**
+     * 删除指定ID的向量（支持批量）
+     * @param collectionName 集合名称
+     * @param ids 要删除的向量ID列表
+     */
+    public void deleteVectors(String collectionName, List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            log.warn("删除向量时ID列表为空");
+            return;
+        }
+
+        String collectionId = getCollectionIdByName(collectionName);
+        if (collectionId == null) {
+            log.warn("集合不存在: {}", collectionName);
+            return;
+        }
+
+        try {
+            String url = String.format("%s/tenants/%s/databases/%s/collections/%s/delete",
+                    chromaBaseUrl, tenant, database, collectionId);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("ids", ids);
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+            restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+
+            log.info("删除向量成功: collection={}, 数量={}", collectionName, ids.size());
+
+        } catch (Exception e) {
+            log.error("删除向量失败: collection={}, ids={}", collectionName, ids, e);
+            throw new RuntimeException("删除向量失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 按条件删除向量（通过metadata过滤）
+     * @param collectionName 集合名称
+     * @param where 过滤条件，如 {"templateId": "xxx"}
+     */
+    public void deleteVectorsByWhere(String collectionName, Map<String, Object> where) {
+        String collectionId = getCollectionIdByName(collectionName);
+        if (collectionId == null) {
+            log.warn("集合不存在: {}", collectionName);
+            return;
+        }
+
+        try {
+            String url = String.format("%s/tenants/%s/databases/%s/collections/%s/delete",
+                    chromaBaseUrl, tenant, database, collectionId);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("where", where);
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+            restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+
+            log.info("按条件删除向量成功: collection={}, where={}", collectionName, where);
+
+        } catch (Exception e) {
+            log.error("按条件删除向量失败: collection={}, where={}", collectionName, where, e);
+            throw new RuntimeException("按条件删除向量失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 更新向量（按ID更新文档和元数据）
+     * @param collectionName 集合名称
+     * @param ids 要更新的向量ID列表
+     * @param documents 新的文档内容
+     * @param metadatas 新的元数据
+     */
+    public void updateVectors(String collectionName, List<String> ids,
+                              List<String> documents, List<Map<String, Object>> metadatas) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+
+        String collectionId = getCollectionIdByName(collectionName);
+        if (collectionId == null) {
+            log.warn("集合不存在: {}", collectionName);
+            return;
+        }
+
+        try {
+            String url = String.format("%s/tenants/%s/databases/%s/collections/%s/update",
+                    chromaBaseUrl, tenant, database, collectionId);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("ids", ids);
+            if (documents != null && !documents.isEmpty()) {
+                body.put("documents", documents);
+            }
+            if (metadatas != null && !metadatas.isEmpty()) {
+                body.put("metadatas", metadatas);
+            }
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+            restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+
+            log.info("更新向量成功: collection={}, 数量={}", collectionName, ids.size());
+
+        } catch (Exception e) {
+            log.error("更新向量失败: collection={}", collectionName, e);
+            throw new RuntimeException("更新向量失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取集合数量（优化版，使用count API）
+     */
+    public int getCollectionCountOptimized(String collectionName) {
+        String collectionId = getCollectionIdByName(collectionName);
+        if (collectionId == null) {
+            return 0;
+        }
+
+        try {
+            // ChromaDB 有专门的 count API
+            String url = String.format("%s/tenants/%s/databases/%s/collections/%s/count",
+                    chromaBaseUrl, tenant, database, collectionId);
+
+            String response = restTemplate.getForObject(url, String.class);
+            JSONObject result = JSON.parseObject(response);
+            return result.getInteger("count");
+
+        } catch (Exception e) {
+            log.error("获取集合数量失败: {}", collectionName, e);
+            return 0;
         }
     }
 }

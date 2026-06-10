@@ -1,12 +1,15 @@
 package com.washy.dify.prompt.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.washy.dify.common.entity.prompt.PromptTemplateVO;
 import com.washy.dify.common.result.Result;
+import com.washy.dify.feign.client.RagFeignClient;
 import com.washy.dify.prompt.entity.GenerateRequest;
 import com.washy.dify.prompt.entity.GenerateResponse;
 import com.washy.dify.prompt.entity.PromptTemplateEntity;
-import com.washy.dify.prompt.entity.PromptTemplateVO;
 import com.washy.dify.prompt.generator.AIPromptGenerator;
+import com.washy.dify.prompt.generator.TemplateBasedGenerator;
+import com.washy.dify.prompt.service.DynamicRouterService;
 import com.washy.dify.prompt.service.PromptTemplateService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,27 +31,45 @@ import java.util.stream.Collectors;
 public class PromptController {
     
     @Autowired
-    private AIPromptGenerator promptGenerator;
+    private AIPromptGenerator aiPromptGenerator;
 
     @Autowired
     private PromptTemplateService templateService;
+
+    @Autowired
+    private TemplateBasedGenerator templateBasedGenerator;
+
+    @Autowired
+    private DynamicRouterService dynamicRouterService;
+
+    @Autowired
+    private RagFeignClient ragFeignClient;
 
     /**
      * AI 生成提示词
      */
     @PostMapping("/generate")
     public Result<GenerateResponse> generate(@Valid @RequestBody GenerateRequest request, HttpServletRequest httpRequest) {
-        log.info("收到提示词生成请求: requirement={}, type={}, modelConfigId={}",
-                request.getRequirement(), request.getType(), request.getModelConfigId());
+        log.info("收到提示词生成请求: requirement={}, type={}",
+                request.getRequirement(), request.getType());
 
         long startTime = System.currentTimeMillis();
 
         // 使用指定的模型配置
-        GenerateResponse response = promptGenerator.generateWithModel(request, request.getModelConfigId());
+        GenerateResponse response = null;
+
+        // 方案四：先尝试大模型，失败时降级到模板
+        try {
+            log.info("尝试使用大模型生成提示词...");
+            response = aiPromptGenerator.generate(request);
+        } catch (Exception e) {
+            log.warn("大模型生成失败，降级使用模板生成", e);
+            response = templateBasedGenerator.generate(request);
+        }
 
         long responseTime = System.currentTimeMillis() - startTime;
-        log.info("生成完成，耗时: {}ms, 置信度: {}%, 使用的模型配置ID: {}",
-                responseTime, response.getConfidenceScore(), request.getModelConfigId());
+        log.info("生成完成，耗时: {}ms, 置信度: {}%",
+                responseTime, response.getConfidenceScore());
 
         return Result.success(response);
     }
@@ -198,5 +219,222 @@ public class PromptController {
                 .collect(Collectors.toList());
 
         return Result.success(list);
+    }
+
+    /**
+     * 动态路由：根据用户查询智能选择提示词模板
+     */
+    @PostMapping("/route")
+    public Result<PromptTemplateVO> route(@RequestBody Map<String, String> request) {
+        String userQuery = request.get("query");
+        if (userQuery == null || userQuery.trim().isEmpty()) {
+            return Result.error("查询内容不能为空");
+        }
+
+        try {
+            PromptTemplateEntity entity = dynamicRouterService.route(userQuery);
+            if (entity == null) {
+                return Result.error("未找到合适的模板");
+            }
+            PromptTemplateVO vo = templateService.toVO(entity);
+            return Result.success(vo);
+        } catch (Exception e) {
+            log.error("动态路由失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 手动同步所有ACTIVE模板到向量库（管理接口）
+     */
+    @PostMapping("/templates/sync-to-vector")
+    public Result<String> syncAllToVector() {
+        try {
+            templateService.syncAllActiveTemplatesToVectorStore();
+            return Result.success("同步完成");
+        } catch (Exception e) {
+            log.error("同步失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 批量导入模板并同步到向量库
+     */
+    @PostMapping("/templates/batch-import")
+    public Result<String> batchImport(@RequestBody List<PromptTemplateVO> templates) {
+        try {
+            int successCount = 0;
+            for (PromptTemplateVO vo : templates) {
+                try {
+                    templateService.saveTemplate(vo);
+                    successCount++;
+                } catch (Exception e) {
+                    log.error("导入模板失败: {}", vo.getName(), e);
+                }
+            }
+            return Result.success("导入完成，成功: " + successCount + "，失败: " + (templates.size() - successCount));
+        } catch (Exception e) {
+            log.error("批量导入失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    // ==================== 新增：向量库相关接口 ====================
+
+    /**
+     * 获取所有提示词模板向量（从向量库获取）
+     * 用于前端查看同步状态
+     */
+    @GetMapping("/vector/templates")
+    public Result<List<Map<String, Object>>> listVectorTemplates() {
+        try {
+            Result<List<Map<String, Object>>> result = ragFeignClient.listAllPromptTemplates();
+            return result;
+        } catch (Exception e) {
+            log.error("获取向量库模板列表失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取提示词模板向量数量
+     */
+    @GetMapping("/vector/count")
+    public Result<Integer> getVectorTemplateCount() {
+        try {
+            Result<Integer> result = ragFeignClient.getPromptTemplateCount();
+            log.info("向量库数量返回: code={}, data={}", result.getCode(), result.getData());
+
+            if (result != null && result.getCode() == 200) {
+                return Result.success(result.getData());
+            }
+            return Result.success(0);
+        } catch (Exception e) {
+            log.error("获取向量库模板数量失败", e);
+            return Result.success(0);
+        }
+    }
+
+    /**
+     * 搜索相似模板（向量检索）
+     * @param request { query: string, topK?: number }
+     */
+    @PostMapping("/vector/search")
+    public Result<List<Map<String, Object>>> searchVectorTemplates(@RequestBody Map<String, Object> request) {
+        try {
+            String query = (String) request.get("query");
+            Integer topK = request.get("topK") != null ? (Integer) request.get("topK") : 5;
+
+            if (query == null || query.trim().isEmpty()) {
+                return Result.error("查询内容不能为空");
+            }
+
+            Map<String, Object> searchRequest = new HashMap<>();
+            searchRequest.put("query", query);
+            searchRequest.put("topK", topK);
+
+            Result<List<Map<String, Object>>> result = ragFeignClient.searchPromptTemplates(searchRequest);
+            return result;
+        } catch (Exception e) {
+            log.error("向量检索失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 同步单个模板到向量库
+     */
+    @PostMapping("/vector/sync/{templateId}")
+    public Result<Void> syncTemplateToVector(@PathVariable String templateId) {
+        try {
+            PromptTemplateEntity entity = templateService.getTemplate(templateId);
+            if (entity == null) {
+                return Result.error("模板不存在");
+            }
+
+            // 构建请求
+            Map<String, Object> request = new HashMap<>();
+            request.put("templateId", entity.getId());
+            request.put("templateName", entity.getName());
+
+            // 构建用于向量化的内容
+            String content = buildVectorContent(entity);
+            request.put("content", content);
+
+            // 构建元数据
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("type", entity.getType() != null ? entity.getType() : "CUSTOM");
+            metadata.put("category", entity.getCategory() != null ? entity.getCategory() : "");
+            metadata.put("tags", entity.getTags() != null ? entity.getTags() : "");
+            metadata.put("status", entity.getStatus());
+            metadata.put("useCount", entity.getUseCount() != null ? entity.getUseCount() : 0);
+            metadata.put("description", entity.getDescription() != null ? entity.getDescription() : "");
+            request.put("metadata", metadata);
+
+            ragFeignClient.storePromptTemplate(request);
+            return Result.success();
+        } catch (Exception e) {
+            log.error("同步模板到向量库失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 从向量库删除模板
+     */
+    @DeleteMapping("/vector/template/{templateId}")
+    public Result<Void> deleteVectorTemplate(@PathVariable String templateId) {
+        try {
+            ragFeignClient.deletePromptTemplate(templateId);
+            return Result.success();
+        } catch (Exception e) {
+            log.error("从向量库删除模板失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 强制重新同步（清空后重新同步所有ACTIVE模板）
+     */
+    @PostMapping("/vector/resync")
+    public Result<String> forceResync() {
+        try {
+            // 先清空向量库中的模板集合
+            ragFeignClient.deleteCollection("prompt_templates");
+            Map<String,String> collectionInfo = new HashMap<>();
+            collectionInfo.put("name", "prompt_templates");
+            collectionInfo.put("description","提示词模板向量库");
+            ragFeignClient.createCollection(collectionInfo);
+
+            // 重新同步
+            templateService.syncAllActiveTemplatesToVectorStore();
+            return Result.success("重新同步完成");
+        } catch (Exception e) {
+            log.error("强制重新同步失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 构建用于向量化的内容
+     */
+    private String buildVectorContent(PromptTemplateEntity entity) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("模板名称：").append(entity.getName()).append("\n");
+        sb.append("模板类型：").append(entity.getType() != null ? entity.getType() : "CUSTOM").append("\n");
+        sb.append("分类：").append(entity.getCategory() != null ? entity.getCategory() : "").append("\n");
+        sb.append("标签：").append(entity.getTags() != null ? entity.getTags() : "").append("\n");
+        sb.append("描述：").append(entity.getDescription() != null ? entity.getDescription() : "").append("\n");
+        sb.append("模板内容：\n").append(entity.getTemplateContent() != null ? entity.getTemplateContent() : "");
+
+        if (entity.getSystemPrompt() != null && !entity.getSystemPrompt().isEmpty()) {
+            sb.append("\n系统提示词：\n").append(entity.getSystemPrompt());
+        }
+        if (entity.getUserPromptTemplate() != null && !entity.getUserPromptTemplate().isEmpty()) {
+            sb.append("\n用户提示词模板：\n").append(entity.getUserPromptTemplate());
+        }
+
+        return sb.toString();
     }
 }

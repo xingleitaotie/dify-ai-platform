@@ -75,6 +75,12 @@ public class SentinelConfig {
                 .setCount(10)
                 .setIntervalSec(1)
                 .setControlBehavior(RuleConstant.CONTROL_BEHAVIOR_DEFAULT));
+
+        // 7. 模型的统一配置：每秒10次请求
+        rules.add(new GatewayFlowRule("dify-model-provider")
+                .setCount(10)
+                .setIntervalSec(1)
+                .setControlBehavior(RuleConstant.CONTROL_BEHAVIOR_DEFAULT));
         // 加载规则（现在完全匹配：Set<GatewayFlowRule>）
         GatewayRuleManager.loadRules(rules);
     }

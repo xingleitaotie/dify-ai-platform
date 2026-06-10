@@ -1,6 +1,8 @@
 package com.washy.dify.prompt.entity;
 
 import lombok.Data;
+import lombok.Getter;
+
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +36,9 @@ public class GenerateRequest {
      * 语言（中文/英文）
      */
     private String language = "zh-CN";
+
+    private Double temperature;
+
     
     /**
      * 是否需要流式输出
@@ -46,93 +51,44 @@ public class GenerateRequest {
 
     private String modelName;     // 模型名称（直接指定）
 
-    public String getRequirement() {
-        return requirement;
-    }
-
-    public void setRequirement(String requirement) {
-        this.requirement = requirement;
-    }
-
-    public TemplateType getType() {
-        return type;
-    }
-
-    public void setType(TemplateType type) {
-        this.type = type;
-    }
-
-    public Map<String, Object> getParameters() {
-        return parameters;
-    }
-
-    public void setParameters(Map<String, Object> parameters) {
-        this.parameters = parameters;
-    }
-
-    public List<Example> getExamples() {
-        return examples;
-    }
-
-    public void setExamples(List<Example> examples) {
-        this.examples = examples;
-    }
-
-    public String getLanguage() {
-        return language;
-    }
-
-    public void setLanguage(String language) {
-        this.language = language;
-    }
-
-    public Boolean getStreaming() {
-        return streaming;
-    }
-
-    public void setStreaming(Boolean streaming) {
-        this.streaming = streaming;
-    }
-
-    public Long getModelConfigId() {
-        return modelConfigId;
-    }
-
-    public void setModelConfigId(Long modelConfigId) {
-        this.modelConfigId = modelConfigId;
-    }
-
-    public String getModelType() {
-        return modelType;
-    }
-
-    public void setModelType(String modelType) {
-        this.modelType = modelType;
-    }
-
-    public String getModelName() {
-        return modelName;
-    }
-
-    public void setModelName(String modelName) {
-        this.modelName = modelName;
-    }
-
-    public OutputFormat getOutputFormat() {
-        return outputFormat;
-    }
-
-    public void setOutputFormat(OutputFormat outputFormat) {
-        this.outputFormat = outputFormat;
-    }
-
     /**
      * 期望的输出格式
      */
     private OutputFormat outputFormat = OutputFormat.TEXT;
-    
+
+    /**
+     * 模板类型枚举
+     */
+    @Getter
     public enum TemplateType {
-        RAG, FUNCTION_CALLING, AGENT_DECISION, AGENT_ANSWER, SUMMARY, CUSTOM
+        GENERAL("general", "通用聊天"),
+        CUSTOM("custom", "自定义"),
+        SUMMARY("summary", "内容总结"),
+        AGENT_ANSWER("agent_answer", "Agent回答"),
+        FUNCTION_CALLING("function_calling", "函数调用"),
+        AGENT_DECISION("agent_decision", "Agent决策"),
+        RAG("rag", "RAG问答"),
+        CODE("code", "代码生成"),
+        CREATIVE("creative", "创意写作"),
+        DATA("data", "数据分析"),
+        STREAMING("streaming", "流式对话");
+
+        private final String value;
+        private final String label;
+
+        TemplateType(String value, String label) {
+            this.value = value;
+            this.label = label;
+        }
+
+        public static TemplateType fromValue(String value) {
+            for (TemplateType type : TemplateType.values()) {
+                if (type.value.equals(value) || type.name().equalsIgnoreCase(value)) {
+                    return type;
+                }
+            }
+            return CUSTOM;
+        }
     }
     
     public enum OutputFormat {

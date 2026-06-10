@@ -37,9 +37,6 @@ dify:
       ollama-base-url: http://localhost:11434
       ollama-model: nomic-embed-text
       ollama-timeout: 300000
-      # 文心配置（切换类型后自动生效）
-      wenxin-api-key: xxx
-      wenxin-secret-key: xxx
     vector-store:
       # Chroma配置
       chroma-host: localhost
@@ -47,9 +44,6 @@ dify:
       chroma-tenant: default_tenant
       chroma-database: default_database
       chroma-collection: dify_knowledge_base
-      # Milvus配置（切换类型后自动生效）
-      milvus-host: localhost
-      milvus-port: 19530
 
 logging:
   level:

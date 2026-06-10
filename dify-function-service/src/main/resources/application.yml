@@ -9,7 +9,6 @@ spring:
 dify:
   # 微服务内部调用地址
   service:
-    llm: http://localhost:8081
     rag: http://localhost:8082
 
 # 函数注册配置（自动加载的内置函数）

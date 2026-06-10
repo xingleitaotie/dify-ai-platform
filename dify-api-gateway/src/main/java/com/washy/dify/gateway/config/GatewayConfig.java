@@ -28,11 +28,16 @@ public class GatewayConfig {
                 .route("dify-prompt-engine", r -> r.path("/api/prompt/**")
                         .uri("lb://dify-prompt-engine"))
 
+                .route("dify-workflow-service", r -> r.path("/api/workflow/**")
+                        .uri("lb://dify-workflow-service"))
+
+                .route("dify-model-provider", r -> r.path("/api/provider/**")
+                        .uri("lb://dify-model-provider"))
+
                 .route("dify-user-service", r -> r.path("/api/user/**")
                         .uri("lb://dify-user-service"))
 
-                .route("dify-workflow-service", r -> r.path("/api/workflow/**")
-                        .uri("lb://dify-workflow-service"))
+
                 .build();
     }
 }

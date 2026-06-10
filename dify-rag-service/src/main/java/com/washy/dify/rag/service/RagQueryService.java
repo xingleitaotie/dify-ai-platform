@@ -116,9 +116,9 @@ public class RagQueryService {
      * 工作流专用：只查询知识库，返回格式化的提示词（不调用大模型生成回答）
      * 使用混合检索策略
      *
-     * @param query 查询问题
-     * @param kbName 知识库名称（可选）
-     * @param topK 返回文档数量
+     * @param query    查询问题
+     * @param kbName   知识库名称（可选）
+     * @param topK     返回文档数量
      * @param configId 模型配置ID（用于查询扩展）
      * @return 格式化的提示词，可直接用于LLM节点
      */
@@ -149,9 +149,9 @@ public class RagQueryService {
     /**
      * 工作流专用：只查询知识库，返回拼接好的知识库内容（不包含提示词）
      *
-     * @param query 查询问题
+     * @param query  查询问题
      * @param kbName 知识库名称（可选）
-     * @param topK 返回文档数量
+     * @param topK   返回文档数量
      * @return 拼接好的知识库内容字符串，可直接用于LLM节点的上下文
      */
     public String queryForWorkflow(String query, String kbName, Integer topK) {
@@ -218,9 +218,9 @@ public class RagQueryService {
     /**
      * 工作流专用：批量查询多个知识库
      *
-     * @param query 查询问题
+     * @param query   查询问题
      * @param kbNames 知识库名称列表
-     * @param topK 每个知识库返回文档数量
+     * @param topK    每个知识库返回文档数量
      * @return 拼接好的知识库内容字符串
      */
     public String queryMultipleForWorkflow(String query, List<String> kbNames, Integer topK) {
@@ -312,9 +312,9 @@ public class RagQueryService {
     /**
      * 工作流专用：指定相似度阈值的检索
      *
-     * @param query 查询问题
-     * @param kbName 知识库名称
-     * @param topK 返回文档数量
+     * @param query     查询问题
+     * @param kbName    知识库名称
+     * @param topK      返回文档数量
      * @param threshold 相似度阈值（0-1），只返回相似度高于此值的文档
      * @return 格式化的提示词
      */
@@ -457,13 +457,13 @@ public class RagQueryService {
      */
     private List<String> expandQuery(String userQuestion, String configId) {
 
-        List<ChatMessage> messages  = new ArrayList<>();
+        List<ChatMessage> messages = new ArrayList<>();
         messages.add(ChatMessage.system(expandSystemPrompt()));
         messages.add(ChatMessage.user(expandUserPrompt(userQuestion)));
         ChatRequestDTO dto = new ChatRequestDTO();
         dto.setMessages(messages);
 
-        Map<String,Object> params = new HashMap<>();
+        Map<String, Object> params = new HashMap<>();
         params.put("temperature", 0.5);
         params.put("max_tokens", 256);
         dto.setParams(params);
@@ -492,7 +492,7 @@ public class RagQueryService {
         return Collections.singletonList(userQuestion);
     }
 
-    private String expandSystemPrompt(){
+    private String expandSystemPrompt() {
         StringBuilder sb = new StringBuilder();
         sb.append("你是一个查询优化助手。用户的问题可能检索不到相关信息，请生成2-3个更宽泛或同义表达的查询语句。\n\n");
         sb.append("规则：\n");
@@ -504,12 +504,12 @@ public class RagQueryService {
         return sb.toString();
     }
 
-    private String expandUserPrompt(String userQuestion){
+    private String expandUserPrompt(String userQuestion) {
 
 
         return String.format("原始问题：%s\n\n" +
                         "扩展查询：",
-                userQuestion );
+                userQuestion);
     }
 
     // ==================== 检索相关 ====================
@@ -561,13 +561,8 @@ public class RagQueryService {
     /**
      * 执行向量检索
      */
-    @SuppressWarnings("unchecked")
     private List<Map<String, Object>> searchVectors(String kbName, String query, int topK) {
-        if (kbName != null && !kbName.isEmpty()) {
-            return vectorStoreFactory.getVectorStoreService().search(kbName, query, topK);
-        } else {
-            return vectorStoreFactory.getVectorStoreService().search(query, topK);
-        }
+        return vectorStoreFactory.getVectorStoreService().search(kbName, query, topK);
     }
 
     /**
@@ -675,13 +670,13 @@ public class RagQueryService {
     private String generateAnswer(String question, String context, List<RetrievedDocument> docs, String configId) {
         String sources = buildSources(docs);
 
-        List<ChatMessage> messages  = new ArrayList<>();
+        List<ChatMessage> messages = new ArrayList<>();
         messages.add(ChatMessage.system(answerSystemPrompt()));
-        messages.add(ChatMessage.user(answerUserPrompt(question,context,sources)));
+        messages.add(ChatMessage.user(answerUserPrompt(question, context, sources)));
         ChatRequestDTO dto = new ChatRequestDTO();
         dto.setMessages(messages);
 
-        Map<String,Object> params = new HashMap<>();
+        Map<String, Object> params = new HashMap<>();
         params.put("temperature", 0.7);
         params.put("max_tokens", 4096);
         dto.setParams(params);
@@ -698,7 +693,7 @@ public class RagQueryService {
         return "查询失败";
     }
 
-    private String answerSystemPrompt(){
+    private String answerSystemPrompt() {
         String prompt = String.format(
                 "你是一个专业的知识库助手。请根据以下文档内容回答用户的问题。\n\n" +
                         "【回答规则】\n" +
@@ -709,7 +704,7 @@ public class RagQueryService {
         return prompt;
     }
 
-    private String answerUserPrompt(String question, String context, String sources){
+    private String answerUserPrompt(String question, String context, String sources) {
         String prompt = String.format(
                 "【相关文档内容】\n%s\n\n" +
                         "【用户问题】\n%s\n\n" +

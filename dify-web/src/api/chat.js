@@ -1,4 +1,3 @@
-// src/api/chat.js
 import request from './request'
 
 export const chatApi = {
@@ -30,7 +29,9 @@ export const chatApi = {
     // 删除会话
     deleteSession(sessionId) {
         return request.delete(`/user/chat/sessions/${sessionId}`)
-    }
+    },
+    // 清除会话模板缓存
+    clearSessionTemplate: (sessionId) => request.delete(`/llm/session/${sessionId}/template-cache`)
 }
 
 // 模型配置 API（路径与后端保持一致）
@@ -42,79 +43,28 @@ export const modelConfigApi = {
         return request.get('/llm/config')
     },
 
-    // 更新配置（原有接口）
-    updateMemoryConfig(config) {
-        return request.post('/llm/config', config)
-    },
-
-    // 测试连接（原有接口）
-    testConnection() {
-        return request.post('/llm/config/test')
-    },
-
-    // ==================== 新增接口（配置管理） ====================
-
-    // 获取配置列表（分页）
-    getConfigPage(pageNum, pageSize, type, status) {
-        return request.get('/llm/config/page', {
-            params: {
-                pageNum,
-                pageSize,
-                type,
-                status
-            }
-        })
-    },
-
-    // 获取当前配置详情
-    getCurrentConfigDetail() {
-        return request.get('/llm/config/current/detail')
-    },
-
-    // 根据ID获取配置
-    getConfigById(id) {
-        return request.get(`/llm/config/detail/${id}`)
-    },
-
     // 获取所有启用的配置
     getEnabledConfigs() {
         return request.get('/llm/config/enabled')
+    }
+
+}
+// ========== 系统模型配置 ==========
+export const systemModelApi = {
+    // 获取所有系统能力配置
+    getCapabilities() {
+        return request.get('/provider/capability')
     },
 
-    // 新增配置
-    addConfig(config) {
-        return request.post('/llm/config/add', config)
+    // 获取能力类型列表
+    getCapabilityTypes() {
+        return request.get('/provider/capability/types')
     },
 
-    // 更新配置
-    updateConfig(config) {
-        return request.put('/llm/config/update', config)
-    },
-
-    // 删除配置
-    deleteConfig(id) {
-        return request.delete(`/llm/config/delete/${id}`)
-    },
-
-    // 切换配置（热加载）
-    switchConfig(configId) {
-        return request.post(`/llm/config/switch/${configId}`)
-    },
-
-    // 测试指定配置连接
-    testConfig(config) {
-        return request.post('/llm/config/test-config', config)
-    },
-
-    // ==================== 模型类型相关接口 ====================
-
-    // 获取支持的模型类型
-    getSupportedTypes() {
-        return request.get('/llm/config/types')
-    },
-
-    // 测试指定模型类型的连接
-    testModelType(modelType) {
-        return request.post('/llm/config/test-model', { modelType })
+    // 更新系统能力配置
+    updateCapability(capabilityType, modelConfigId) {
+        return request.put(`/provider/capability/${capabilityType}`, {
+            modelConfigId
+        })
     }
 }

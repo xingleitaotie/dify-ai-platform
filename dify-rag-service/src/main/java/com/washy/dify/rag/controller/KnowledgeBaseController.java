@@ -36,7 +36,7 @@ public class KnowledgeBaseController {
     @PostMapping("/create")
     public Result<Map<String, Object>> create(@RequestBody Map<String, String> params) {
         String name = params.get("name");
-        String description = params.get("description");
+        String description = params.get("description") == null ? "" : params.get("description");
         
         if (name == null || name.trim().isEmpty()) {
             return Result.error("知识库名称不能为空");
@@ -111,15 +111,6 @@ public class KnowledgeBaseController {
     @GetMapping("/{kbId}/config")
     public Result<Map<String, Object>> getConfig(@PathVariable String kbId) {
         Map<String, Object> config = factory.getVectorStoreService().getConfig(kbId);
-        return Result.success(config);
-    }
-
-    /**
-     * 获取默认知识库配置
-     */
-    @GetMapping("/default/config")
-    public Result<Map<String, Object>> getDefaultConfig() {
-        Map<String, Object> config = factory.getVectorStoreService().getDefaultConfig();
         return Result.success(config);
     }
 

@@ -8,5 +8,5 @@ import org.springframework.stereotype.Service;
 public interface PromptGenerator {
 
     // 带模型配置的生成方法
-    GenerateResponse generateWithModel(GenerateRequest request, Long modelConfigId);
+    GenerateResponse generate(GenerateRequest request);
 }

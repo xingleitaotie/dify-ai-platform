@@ -31,14 +31,15 @@ spring:
     async:
       request-timeout: -1
 
+# MyBatis-Plus
 mybatis-plus:
-  type-aliases-package: com.washy.dify.agent.domain.entity
+  mapper-locations: classpath:mapper/*.xml
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-
-function:
-  service-url: http://localhost:8083
+  global-config:
+    db-config:
+      id-type: auto
 
 llm:
   service-url: http://localhost:8081
@@ -51,10 +52,6 @@ feign:
       default:
         connectTimeout: 600000    # 10分钟
         readTimeout: 1200000      # 20分钟！足够模型推理
-
-ribbon:
-  ReadTimeout: 60000
-  ConnectTimeout: 30000
 
 eureka:
   client:

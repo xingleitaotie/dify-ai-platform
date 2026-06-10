@@ -25,16 +25,11 @@ dify:
       # ollama-base-url: http://ollama:11434 不使用本地ollama时打开
       ollama-base-url: http://host.docker.internal:11434
       ollama-model: nomic-embed-text
-      wenxin-api-key: xxx
-      wenxin-secret-key: xxx
     vector-store:
       chroma-host: chroma               # 容器内网 Chroma
       chroma-port: 8000
       chroma-tenant: default_tenant
       chroma-database: default_database
-      chroma-collection: dify_knowledge_base
-      milvus-host: localhost
-      milvus-port: 19530
 
 logging:
   level:
