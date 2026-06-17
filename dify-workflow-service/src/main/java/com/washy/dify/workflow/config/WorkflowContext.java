@@ -18,6 +18,8 @@ public class WorkflowContext {
 
     private String sessionId;
 
+    private String userId;
+
     // 新增：上一个节点的输出（给下一个节点用）
     private Object lastNodeOutput;
 

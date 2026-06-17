@@ -22,7 +22,7 @@ public interface WorkflowMapper extends BaseMapper<Workflow> {
      * 根据用户ID查询工作流列表
      */
     @Select("SELECT * FROM workflow WHERE user_id = #{userId} AND status != 'ARCHIVED' ORDER BY create_time DESC")
-    List<Workflow> selectByUserId(@Param("userId") Long userId);
+    List<Workflow> selectByUserId(@Param("userId") String userId);
 
     /**
      * 查询已发布的工作流列表

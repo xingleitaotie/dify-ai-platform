@@ -44,38 +44,64 @@ public class AuthFilter implements GlobalFilter, Ordered {
         String path = request.getPath().value();
         HttpMethod method = request.getMethod();
 
-        // 放行 OPTIONS 预检请求（不添加任何头，让 CorsConfig 处理）
+        // 放行 OPTIONS 预检请求
         if (method == HttpMethod.OPTIONS) {
-            // 直接放行，不设置任何东西
             return chain.filter(exchange);
         }
 
-        // 白名单直接放行
+        // 白名单直接放行（但依然注入匿名用户，保证下游 Header 不为空）
         if (isWhiteList(path)) {
-            return chain.filter(exchange);
+            // ✅ 白名单路径也注入匿名用户，确保下游始终能拿到 X-User-Id
+            ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                    .header("X-User-Id", "anonymous")
+                    .header("X-User-Name", "anonymous")
+                    .build();
+            return chain.filter(exchange.mutate().request(mutatedRequest).build());
         }
 
-        ServerHttpResponse response = exchange.getResponse();
+        // 非白名单：校验 Token
         String token = getTokenFromRequest(request);
+        ServerHttpResponse response = exchange.getResponse();
 
         if (token == null || !JwtUtil.validateToken(token)) {
             return unauthorized(response);
         }
 
-        return chain.filter(exchange);
+        // ✅ ===== 核心：Token 有效，解析用户信息并注入 Header =====
+        try {
+            Long userIdLong = JwtUtil.getUserId(token);
+            String username = JwtUtil.getUsername(token);
+
+            String userId = userIdLong != null ? userIdLong.toString() : "anonymous";
+            String userName = (username != null && !username.isEmpty()) ? username : "anonymous";
+
+            ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                    .header("X-User-Id", userId)
+                    .header("X-User-Name", userName)
+                    .build();
+
+            return chain.filter(exchange.mutate().request(mutatedRequest).build());
+
+        } catch (Exception e) {
+            log.error("解析 Token 用户信息失败", e);
+            return unauthorized(response);
+        }
     }
 
     private String getTokenFromRequest(ServerHttpRequest request) {
+        // 1. 尝试从 token 头获取
         String token = request.getHeaders().getFirst("token");
         if (token != null && !token.isEmpty()) {
             return token;
         }
 
+        // 2. 尝试从 Authorization 头获取
         String authHeader = request.getHeaders().getFirst("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
         }
 
+        // 3. 尝试从 Query 参数获取（WebSocket 等场景）
         String queryToken = request.getQueryParams().getFirst("token");
         if (queryToken != null && !queryToken.isEmpty()) {
             return queryToken;

@@ -172,6 +172,7 @@ const saveConfig = async () => {
     try {
       await configFormRef.value.validate()
     } catch (e) {
+      ElMessage.warning('请完善表单必填项')
       return
     }
   }

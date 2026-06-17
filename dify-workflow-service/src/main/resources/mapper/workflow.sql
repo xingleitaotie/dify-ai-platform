@@ -49,23 +49,28 @@ CREATE TABLE `workflow_edge` (
 -- 工作流执行记录表
 CREATE TABLE `workflow_execution` (
                                       `id` BIGINT NOT NULL AUTO_INCREMENT,
-                                      `execution_id` VARCHAR(64) NOT NULL COMMENT '执行ID',
-                                      `workflow_id` BIGINT NOT NULL,
-                                      `workflow_version` INT DEFAULT 1,
-                                      `session_id` VARCHAR(64) COMMENT '会话ID',
+                                      `execution_id` VARCHAR(64) NOT NULL COMMENT '执行ID（全局唯一）',
+                                      `workflow_id` BIGINT NOT NULL COMMENT '工作流ID',
+                                      `user_id` VARCHAR(64) NULL COMMENT '执行用户ID（来自网关注入的 X-User-Id）',
+                                      `execution_name` VARCHAR(128) NULL COMMENT '执行名称（用户自定义，如“测试运行”）',
+                                      `workflow_version` INT DEFAULT 1 COMMENT '工作流版本号',
+                                      `trigger_type` VARCHAR(20) DEFAULT 'MANUAL' COMMENT '触发方式：MANUAL, API, SCHEDULE, WEBHOOK',
+                                      `session_id` VARCHAR(128) NULL COMMENT '会话ID（用于关联多轮对话，如 chat_abc123）',
                                       `input` TEXT COMMENT '输入参数(JSON)',
                                       `output` TEXT COMMENT '输出结果(JSON)',
                                       `status` VARCHAR(20) DEFAULT 'RUNNING' COMMENT '状态: RUNNING, SUCCESS, FAILED, CANCELLED',
-                                      `start_time` DATETIME NOT NULL,
-                                      `end_time` DATETIME,
-                                      `cost_time` BIGINT COMMENT '耗时(毫秒)',
-                                      `error_msg` TEXT COMMENT '错误信息',
+                                      `start_time` DATETIME NOT NULL COMMENT '开始时间',
+                                      `end_time` DATETIME NULL COMMENT '结束时间',
+                                      `cost_time` BIGINT NULL COMMENT '耗时(毫秒)',
+                                      `error_msg` TEXT NULL COMMENT '错误信息',
                                       PRIMARY KEY (`id`),
                                       UNIQUE KEY `uk_execution_id` (`execution_id`),
-                                      INDEX `idx_workflow_id` (`workflow_id`),
-                                      INDEX `idx_session_id` (`session_id`),
-                                      INDEX `idx_status` (`status`),
-                                      INDEX `idx_start_time` (`start_time`)
+                                      KEY `idx_workflow_id` (`workflow_id`),
+                                      KEY `idx_user_id` (`user_id`),
+                                      KEY `idx_session_id` (`session_id`),
+                                      KEY `idx_status` (`status`),
+                                      KEY `idx_start_time` (`start_time`),
+                                      KEY `idx_workflow_user_start` (`workflow_id`, `user_id`, `start_time` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='工作流执行记录表';
 
 -- 工作流节点执行记录表

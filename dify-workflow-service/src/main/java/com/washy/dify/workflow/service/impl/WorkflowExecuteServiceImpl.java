@@ -1,6 +1,7 @@
 package com.washy.dify.workflow.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.washy.dify.common.context.UserContextHolder;
 import com.washy.dify.common.entity.workflow.WorkflowExecuteDTO;
 import com.washy.dify.common.entity.workflow.WorkflowExecuteResultDTO;
 import com.washy.dify.common.entity.workflow.WorkflowExecutionDTO;
@@ -9,7 +10,6 @@ import com.washy.dify.workflow.entity.*;
 import com.washy.dify.workflow.mapper.*;
 import com.washy.dify.workflow.node.NodeExecutor;
 import com.washy.dify.workflow.service.WorkflowExecuteService;
-import com.washy.dify.workflow.util.WorkflowVariableResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,14 +43,15 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
     private final ExecutorService executorService = Executors.newCachedThreadPool();
     private List<NodeExecutor> executors;
 
-    private WorkflowVariableResolver resolver;
-
     private final Map<String, NodeExecutor> executorMap = new ConcurrentHashMap<>();
 
-    public WorkflowExecuteServiceImpl(List<NodeExecutor> executors,
-                                      WorkflowVariableResolver resolver) {
+    public WorkflowExecuteServiceImpl(List<NodeExecutor> executors) {
         this.executors = executors;
-        this.resolver = resolver;
+    }
+
+    private String getCurrentUserId() {
+        Long userId = UserContextHolder.getCurrentUserId();
+        return userId != null ? userId.toString() : "anonymous";
     }
 
     @PostConstruct
@@ -75,27 +76,7 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
         long startTime = System.currentTimeMillis();
 
         try {
-            // ===================== 【关键修改】START / END 不执行业务逻辑 =====================
-            if ("START".equals(node.getNodeType())) {
-                // 开始节点：只把用户输入作为输出，不执行任何逻辑
-                nodeExec.setNodeInput(objectMapper.writeValueAsString(context.getInputs()));
-                nodeExec.setNodeOutput(objectMapper.writeValueAsString(context.getInputs()));
-                nodeExec.setStatus("SUCCESS");
-                return nodeExec;
-            }
-            if ("END".equals(node.getNodeType())) {
-                // 结束节点：只接收上一节点结果，不执行，直接作为最终输出
-                Map<String, Object> endInput = new HashMap<>();
-                endInput.put("lastNodeOutput", context.getLastNodeOutput());
-                endInput.put("variables", context.getVariables());
-
-                nodeExec.setNodeInput(objectMapper.writeValueAsString(endInput));
-                nodeExec.setNodeOutput(objectMapper.writeValueAsString(context.getLastNodeOutput()));
-                nodeExec.setStatus("SUCCESS");
-                return nodeExec;
-            }
-            // ==============================================================================
-
+            // ========== 统一执行所有节点（包括 START 和 END） ==========
             Map<String, Object> config = parseConfig(node.getConfig());
             Map<String, Object> nodeInput = buildNodeInput(node, config, context);
 
@@ -111,7 +92,7 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
             nodeExec.setNodeOutput(objectMapper.writeValueAsString(output));
             nodeExec.setStatus("SUCCESS");
 
-            // 输出变量存入上下文
+            // 如果节点配置了输出变量名，存入上下文
             String outputVar = config != null ? (String) config.get("outputVar") : null;
             if (outputVar != null && !outputVar.isEmpty() && output != null) {
                 Object outputValue = extractOutputValue(output);
@@ -119,7 +100,7 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
                 log.info("节点 {} 输出变量 {} = {}", node.getName(), outputVar, outputValue);
             }
 
-            // ===================== 【关键】把当前节点输出存入上下文，给下一个节点用 =====================
+            // 把当前节点输出存入上下文，给下一个节点用
             context.setLastNodeOutput(output);
 
         } catch (Exception e) {
@@ -281,6 +262,7 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
 
             // 创建执行记录
             WorkflowExecution execution = createExecutionRecord(executionId, workflow, dto);
+            execution.setUserId(getCurrentUserId());
             executionMapper.insert(execution);
 
             // 执行上下文
@@ -288,6 +270,7 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
             context.setInputs(dto.getInputs());
             context.setVariables(new HashMap<String, Object>());
             context.setSessionId(dto.getSessionId());
+            context.setUserId(dto.getUserId());
 
             // 找到开始节点
             WorkflowNode startNode = null;
@@ -309,16 +292,9 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
                 // 执行当前节点
                 currentNodeExecution = executeNode(currentNode, context, executionId, nodeMap);
                 nodeExecutionMapper.insert(currentNodeExecution);
-                try {
-                    if (!"START".equals(currentNode.getNodeType()) && !"END".equals(currentNode.getNodeType())) {
-                        Object output = objectMapper.readValue(currentNodeExecution.getNodeOutput(), Object.class);
-                        context.setLastNodeOutput(output);
-                    }
-                } catch (Exception e) {
-                    log.error("设置上一节点输出失败", e);
-                }
+
+                // 统一处理：只要节点执行成功，循环继续；失败则退出
                 if (!"SUCCESS".equals(currentNodeExecution.getStatus())) {
-                    // 节点执行失败
                     execution.setStatus("FAILED");
                     execution.setErrorMsg(currentNodeExecution.getErrorMsg());
                     break;
@@ -591,6 +567,7 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
                     context.setInputs(dto.getInputs());
                     context.setVariables(new HashMap<String, Object>());
                     context.setSessionId(dto.getSessionId());
+                    context.setUserId(dto.getUserId());
 
                     WorkflowNode currentNode = null;
                     for (WorkflowNode node : nodes) {
@@ -666,14 +643,15 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
     }
 
     @Override
-    public List<WorkflowExecutionDTO> getExecutions(Long workflowId, int page, int size) {
+    public List<WorkflowExecutionDTO> getExecutions(Long workflowId,String userId, int page, int size) {
         int offset = (page - 1) * size;
-        List<WorkflowExecution> executions = executionMapper.selectByWorkflowIdWithPage(workflowId, offset, size);
+        List<WorkflowExecution> executions = executionMapper.selectByWorkflowIdWithPage(workflowId, userId, offset, size);
 
         List<WorkflowExecutionDTO> result = new ArrayList<WorkflowExecutionDTO>();
         for (WorkflowExecution execution : executions) {
             WorkflowExecutionDTO dto = new WorkflowExecutionDTO();
             dto.setId(execution.getId());
+            dto.setUserId(execution.getUserId());
             dto.setExecutionId(execution.getExecutionId());
             dto.setWorkflowId(execution.getWorkflowId());
             dto.setWorkflowVersion(execution.getWorkflowVersion());

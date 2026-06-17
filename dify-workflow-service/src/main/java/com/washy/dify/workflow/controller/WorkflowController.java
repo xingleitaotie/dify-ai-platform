@@ -5,6 +5,7 @@ import com.washy.dify.common.result.Result;
 import com.washy.dify.workflow.service.WorkflowExecuteService;
 import com.washy.dify.workflow.service.WorkflowService;
 import lombok.RequiredArgsConstructor;
+import org.apache.ibatis.annotations.Param;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -73,9 +74,10 @@ public class WorkflowController {
     
     @GetMapping("/executions")
     public Result<List<WorkflowExecutionDTO>> getExecutions(@RequestParam Long workflowId,
+                                                            @Param("userId") String userId,
                                                             @RequestParam(defaultValue = "1") int page,
                                                             @RequestParam(defaultValue = "20") int size) {
-        return Result.success(workflowExecuteService.getExecutions(workflowId, page, size));
+        return Result.success(workflowExecuteService.getExecutions(workflowId,userId,page, size));
     }
     
     @GetMapping("/execution/{executionId}")

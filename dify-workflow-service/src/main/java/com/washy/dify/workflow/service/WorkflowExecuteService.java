@@ -13,7 +13,7 @@ public interface WorkflowExecuteService {
 
     SseEmitter streamExecuteWorkflow(@Valid WorkflowExecuteDTO dto);
 
-    List<WorkflowExecutionDTO> getExecutions(Long workflowId, int page, int size);
+    List<WorkflowExecutionDTO> getExecutions(Long workflowId,String userId, int page, int size);
 
     WorkflowExecuteResultDTO getExecutionDetail(String executionId);
 

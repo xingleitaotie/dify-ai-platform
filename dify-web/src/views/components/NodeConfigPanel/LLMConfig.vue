@@ -8,12 +8,13 @@
           placeholder="选择模型配置"
           filterable
           clearable
+          :loading="modelLoading"
           @change="onModelChange"
       >
         <el-option
             v-for="model in modelList"
             :key="model.id"
-            :label="`${model.configName} (${getTypeLabel(model.type)})`"
+            :label="`${model.modelName} (${model.providerName})`"
             :value="model.id"
         />
       </el-select>
@@ -24,6 +25,7 @@
         <el-descriptions-item label="模型名称">{{ selectedModel.modelName }}</el-descriptions-item>
         <el-descriptions-item label="Temperature">{{ selectedModel.temperature }}</el-descriptions-item>
         <el-descriptions-item label="Max Tokens">{{ selectedModel.maxTokens }}</el-descriptions-item>
+        <el-descriptions-item label="供应商">{{ selectedModel.providerName }}</el-descriptions-item>
       </el-descriptions>
     </el-form-item>
 
@@ -162,7 +164,7 @@ import { ref, reactive, onMounted, watch, computed, inject } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowDown, MagicStick, Delete, Plus } from '@element-plus/icons-vue'
 import PromptGeneratorDialog from './PromptGeneratorDialog.vue'
-import { useModelConfig } from './composables/useModelConfig'
+import { systemModelApi, providerApi } from '@/api/modelConfig'  // 使用实际的 API 路径
 
 const props = defineProps({
   config: { type: Object, required: true },
@@ -182,23 +184,109 @@ const nodeOutputVars = computed(() => {
 
 const localConfig = reactive(props.config)
 
-const { modelList, selectedModel, loadModels, getTypeLabel } = useModelConfig()
-const showGeneratorDialog = ref(false)
+// ========== 动态模型加载（参考知识库页面） ==========
+const modelList = ref([])
+const selectedModel = ref(null)
+const modelLoading = ref(false)
 
-const onModelChange = (id) => {
-  selectedModel.value = modelList.value.find(m => m.id === id)
+// 加载聊天模型列表
+const loadChatModels = async () => {
+  modelLoading.value = true
+  try {
+    // 1. 获取系统配置的聊天模型 ID
+    let systemChatModelId = null
+    const capRes = await systemModelApi.getCapabilities()
+    if (capRes.code === 200 && capRes.data) {
+      const chatCapability = capRes.data.chat
+      if (chatCapability && chatCapability.modelConfigId) {
+        systemChatModelId = chatCapability.modelConfigId
+      }
+    }
+
+    // 2. 获取所有启用的供应商及其聊天模型
+    const providerRes = await providerApi.getEnabledProviders()
+    if (providerRes.code === 200 && providerRes.data) {
+      const models = []
+      for (const provider of providerRes.data) {
+        try {
+          const detailRes = await providerApi.getProviderDetail(provider.id)
+          if (detailRes.code === 200 && detailRes.data && detailRes.data.models) {
+            // 筛选出 chat 类型的模型
+            const chatModels = detailRes.data.models.filter(
+                model => model.capabilityType === 'chat' && model.status === 1
+            )
+            chatModels.forEach(model => {
+              models.push({
+                id: model.id,
+                modelName: model.modelName,
+                modelKey: model.modelKey,
+                providerName: provider.providerName,
+                providerKey: provider.providerKey,
+                temperature: model.defaultTemperature || 0.7,
+                maxTokens: model.maxTokens || 4096,
+                // 保留原始 model 对象以备后续扩展
+                raw: model
+              })
+            })
+          }
+        } catch (e) {
+          console.warn(`获取供应商 ${provider.providerName} 的模型失败:`, e)
+        }
+      }
+      modelList.value = models
+
+      // 3. 设置默认选中的模型（优先使用系统配置的模型）
+      if (systemChatModelId) {
+        const systemModel = models.find(m => m.id === systemChatModelId)
+        if (systemModel) {
+          selectedModel.value = systemModel
+          // 如果当前 localConfig 中没有 modelConfigId，自动设置为系统模型
+          if (!localConfig.modelConfigId) {
+            localConfig.modelConfigId = systemModel.id
+          }
+          return
+        }
+      }
+
+      // 如果系统模型未找到或未配置，则默认选择第一个可用模型
+      if (models.length > 0 && !localConfig.modelConfigId) {
+        selectedModel.value = models[0]
+        localConfig.modelConfigId = models[0].id
+      }
+    } else {
+      ElMessage.warning('未获取到可用的模型供应商')
+    }
+  } catch (error) {
+    console.error('加载模型列表失败:', error)
+    ElMessage.error('加载模型列表失败')
+  } finally {
+    modelLoading.value = false
+  }
 }
+
+// 模型变更时更新选中模型详情
+const onModelChange = (id) => {
+  const model = modelList.value.find(m => m.id === id)
+  if (model) {
+    selectedModel.value = model
+  } else {
+    selectedModel.value = null
+  }
+}
+
+// ========== 原有功能 ==========
+const outputVarDisplay = computed(() => {
+  const varName = localConfig.outputVar || 'llm_response'
+  return `{{var.${varName}}}`
+})
+
+const showGeneratorDialog = ref(false)
 
 const onOutputTypeChange = (type) => {
   if (type === 'json' && !localConfig.outputFields?.length) {
     localConfig.outputFields = []
   }
 }
-
-const outputVarDisplay = computed(() => {
-  const varName = localConfig.outputVar || 'llm_response'
-  return `{{var.${varName}}}`
-})
 
 const addField = () => {
   if (!localConfig.outputFields) localConfig.outputFields = []
@@ -229,12 +317,14 @@ watch(localConfig, (newVal) => {
   emit('update', newVal)
 }, { deep: true })
 
+// ========== 生命周期 ==========
 onMounted(() => {
-  loadModels()
+  loadChatModels()
 })
 </script>
 
 <style scoped>
+/* 原有样式保持不变 */
 .var-code {
   font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
   font-size: 12px;

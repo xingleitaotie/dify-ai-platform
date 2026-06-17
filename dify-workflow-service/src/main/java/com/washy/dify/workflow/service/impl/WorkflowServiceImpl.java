@@ -1,6 +1,7 @@
 package com.washy.dify.workflow.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.washy.dify.common.context.UserContextHolder;
 import com.washy.dify.common.entity.workflow.*;
 import com.washy.dify.common.exception.BusinessException;
 import com.washy.dify.common.result.ResultCode;
@@ -32,10 +33,15 @@ public class WorkflowServiceImpl implements WorkflowService {
     private final WorkflowEdgeMapper edgeMapper;
     private final ObjectMapper objectMapper;
 
+    private String getCurrentUserId() {
+        Long userId = UserContextHolder.getCurrentUserId();
+        return userId != null ? userId.toString() : "anonymous";
+    }
+
     @Override
     @Transactional
     public WorkflowDetailDTO createWorkflow(WorkflowCreateDTO dto, String token) {
-        Long userId = 1L;
+        Long userId = Long.parseLong(getCurrentUserId());
 
         Workflow workflow = new Workflow();
         workflow.setName(dto.getName());
@@ -142,13 +148,12 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     @Override
     public List<WorkflowListDTO> listWorkflows(Long appId, String token) {
-        Long userId = 1L;
 
         List<Workflow> workflows;
         if (appId != null) {
             workflows = workflowMapper.selectByAppId(appId);
         } else {
-            workflows = workflowMapper.selectByUserId(userId);
+            workflows = workflowMapper.selectByUserId(getCurrentUserId());
         }
 
         if (workflows == null) {

@@ -733,10 +733,6 @@ const updateNodeConfig = (config) => {
     // 同步 currentNode 以供配置面板和变量计算
     currentNode.value.config = node.data.config
     currentNode.value.name = node.data.name
-    // 如果修改了输出变量相关配置，立即更新变量列表
-    if (config.outputVar !== undefined || config.outputType !== undefined) {
-      updateNodeOutputVars()
-    }
   }
 }
 

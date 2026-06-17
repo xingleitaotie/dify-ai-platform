@@ -14,5 +14,7 @@ public class WorkflowExecuteDTO implements Serializable {
 
     private String sessionId;
 
+    private String userId;
+
     private Map<String, Object> inputs;
 }

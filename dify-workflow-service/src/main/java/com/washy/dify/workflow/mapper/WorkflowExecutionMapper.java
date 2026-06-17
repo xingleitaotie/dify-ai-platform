@@ -21,8 +21,9 @@ public interface WorkflowExecutionMapper extends BaseMapper<WorkflowExecution> {
     /**
      * 分页查询工作流执行记录
      */
-    @Select("SELECT * FROM workflow_execution WHERE workflow_id = #{workflowId} ORDER BY start_time DESC LIMIT #{offset}, #{size}")
+    @Select("SELECT * FROM workflow_execution WHERE workflow_id = #{workflowId} and user_id = #{userId} ORDER BY start_time DESC LIMIT #{offset}, #{size}")
     List<WorkflowExecution> selectByWorkflowIdWithPage(@Param("workflowId") Long workflowId,
+                                                       @Param("userId") String userId,
                                                        @Param("offset") int offset,
                                                        @Param("size") int size);
 

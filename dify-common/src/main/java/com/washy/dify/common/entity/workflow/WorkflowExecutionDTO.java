@@ -13,6 +13,7 @@ public class WorkflowExecutionDTO implements Serializable {
     private String executionId;
     private Long workflowId;
     private Integer workflowVersion;
+    private String userId;
     private String sessionId;
     private String status;
     private Date startTime;

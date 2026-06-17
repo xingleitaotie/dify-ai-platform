@@ -12,7 +12,7 @@ import java.util.Date;
 public class WorkflowExecution {
     @TableId(type = IdType.AUTO)
     private Long id;
-
+    private String userId;
     private String executionId;
     private Long workflowId;
     private Integer workflowVersion;
