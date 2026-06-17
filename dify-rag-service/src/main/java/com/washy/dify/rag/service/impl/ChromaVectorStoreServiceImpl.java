@@ -40,14 +40,16 @@ public class ChromaVectorStoreServiceImpl implements VectorStoreService {
         List<Map<String, Object>> result = new ArrayList<>();
 
         for (Map<String, Object> collection : collections) {
-            String name = (String) collection.get("name");
-            Map<String, Object> kb = new HashMap<>();
-            kb.put("id", collection.get("id"));
-            kb.put("name", name);
-            kb.put("description", collection.getOrDefault("description", ""));
-            kb.put("documents", chromaApiClient.listDocuments(name) == null ? 0 : chromaApiClient.listDocuments(name).size());
-            kb.put("chunkCount", chromaApiClient.getCollectionCount(name));
-            result.add(kb);
+            if(null != collection.get("name") && !SystemConstants.PROMPT_TEMPLATE_COLLECTION.equals(collection.get("name"))){
+                String name = (String) collection.get("name");
+                Map<String, Object> kb = new HashMap<>();
+                kb.put("id", collection.get("id"));
+                kb.put("name", name);
+                kb.put("description", collection.getOrDefault("description", ""));
+                kb.put("documents", chromaApiClient.listDocuments(name) == null ? 0 : chromaApiClient.listDocuments(name).size());
+                kb.put("chunkCount", chromaApiClient.getCollectionCount(name));
+                result.add(kb);
+            }
         }
 
         return result;

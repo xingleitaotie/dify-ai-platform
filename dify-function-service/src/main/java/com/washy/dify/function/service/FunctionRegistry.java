@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -82,6 +83,7 @@ public class FunctionRegistry implements ApplicationListener<ContextRefreshedEve
                     FunctionInfo functionInfo = new FunctionInfo();
                     functionInfo.setName(aiFunction.name());
                     functionInfo.setDesc(aiFunction.desc());
+                    functionInfo.setParamsSchema(aiFunction.params());  // 保存完整 Schema
                     List<String> paramNames = getMethodParamNames(method);
                     functionInfo.setParams(paramNames);
 
@@ -94,6 +96,65 @@ public class FunctionRegistry implements ApplicationListener<ContextRefreshedEve
                 log.error("扫描Bean异常：{}", beanName, e);
             }
         }
+    }
+
+    /**
+     * 获取大模型格式的函数列表（OpenAI Function Calling 标准格式）
+     */
+    public List<Map<String, Object>> getFunctionListForLLM() {
+        List<Map<String, Object>> toolList = new ArrayList<>();
+
+        for (FunctionInfo info : FUNCTION_MAP.values()) {
+            Map<String, Object> tool = new HashMap<>();
+            tool.put("type", "function");
+
+            Map<String, Object> function = new HashMap<>();
+            function.put("name", info.getName());
+            function.put("description", info.getDesc());
+
+            // 解析参数 Schema
+            if (info.getParamsSchema() != null && !info.getParamsSchema().isEmpty()) {
+                try {
+                    com.alibaba.fastjson2.JSONObject paramsSchema =
+                            com.alibaba.fastjson2.JSONObject.parseObject(info.getParamsSchema());
+                    function.put("parameters", paramsSchema);
+                } catch (Exception e) {
+                    log.warn("解析参数 Schema 失败: {}", info.getName(), e);
+                    function.put("parameters", createDefaultParameters(info.getParams()));
+                }
+            } else {
+                function.put("parameters", createDefaultParameters(info.getParams()));
+            }
+
+            tool.put("function", function);
+            toolList.add(tool);
+        }
+
+        return toolList;
+    }
+
+    /**
+     * 创建默认参数定义
+     */
+    private Map<String, Object> createDefaultParameters(List<String> paramNames) {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("type", "object");
+
+        Map<String, Object> properties = new HashMap<>();
+        List<String> required = new ArrayList<>();
+
+        for (String paramName : paramNames) {
+            Map<String, Object> paramDef = new HashMap<>();
+            paramDef.put("type", "string");
+            paramDef.put("description", "参数：" + paramName);
+            properties.put(paramName, paramDef);
+            required.add(paramName);
+        }
+
+        parameters.put("properties", properties);
+        parameters.put("required", required);
+
+        return parameters;
     }
 
     /**

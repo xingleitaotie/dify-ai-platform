@@ -3,7 +3,6 @@ package com.washy.dify.function.executor;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
-import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.washy.dify.common.entity.function.FunctionCallRequest;
 import com.washy.dify.common.entity.function.FunctionConstant;
@@ -115,51 +114,25 @@ public class FunctionExecutor {
             return new Object[0];
         }
 
-        // 2. 单参 - 智能提取
+        // 2. 单参
         if (paramCount == 1) {
-            try {
-                Class<?> targetType = paramTypes[0];
-                Object convertedValue = originalParam;
+            Class<?> targetType = paramTypes[0];
+            Object convertedValue = originalParam;
 
-                // 特殊处理：目标类型是 String，但原始参数是 Map
-                if (targetType == String.class && originalParam instanceof Map) {
-                    Map<?, ?> map = (Map<?, ?>) originalParam;
-                    // 尝试提取常见的字段名
-                    String[] commonKeys = {"city", "query", "text", "content", "input"};
-                    for (String key : commonKeys) {
-                        if (map.containsKey(key)) {
-                            convertedValue = String.valueOf(map.get(key));
-                            log.info("从Map中提取参数值: key={}, value={}", key, convertedValue);
-                            break;
-                        }
-                    }
-                    // 如果都没有，取第一个值
-                    if (convertedValue == originalParam && !map.isEmpty()) {
-                        convertedValue = String.valueOf(map.values().iterator().next());
-                        log.info("从Map中提取第一个值: {}", convertedValue);
-                    }
-                }
-                // 特殊处理：目标类型是 String，但原始参数是 JSON 字符串
-                else if (targetType == String.class && originalParam instanceof String) {
-                    String str = (String) originalParam;
-                    if (str.trim().startsWith("{") && str.contains("city")) {
-                        // 尝试从 JSON 字符串中提取 city
-                        try {
-                            JSONObject json = JSON.parseObject(str);
-                            if (json.containsKey("city")) {
-                                convertedValue = json.getString("city");
-                                log.info("从JSON字符串中提取city: {}", convertedValue);
-                            }
-                        } catch (Exception e) {
-                            log.warn("解析JSON失败: {}", e.getMessage());
-                        }
-                    }
-                }
-
-                return new Object[]{Convert.convert(targetType, convertedValue)};
-            } catch (Exception e) {
-                throw new FunctionException(FunctionConstant.PARAM_ERROR + "参数转换失败：" + e.getMessage());
+            // 如果目标类型是 String 且原始参数是 Map，直接转 JSON 字符串
+            if (targetType == String.class && originalParam instanceof Map) {
+                convertedValue = JSONObject.toJSONString(originalParam);
             }
+            // 如果目标类型是 Map 且原始参数是 String，尝试解析
+            else if (targetType == Map.class && originalParam instanceof String) {
+                try {
+                    convertedValue = JSONObject.parseObject((String) originalParam);
+                } catch (Exception e) {
+                    log.warn("解析JSON失败: {}", e.getMessage());
+                }
+            }
+
+            return new Object[]{Convert.convert(targetType, convertedValue)};
         }
 
         // 3. 多参方法

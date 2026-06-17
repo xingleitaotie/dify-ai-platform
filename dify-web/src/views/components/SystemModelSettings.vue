@@ -188,7 +188,7 @@
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Edit, Search, Check } from '@element-plus/icons-vue'
-import { systemModelApi, providerApi } from '@/api/modelConfig'
+import { systemModelApi, providerApi } from '@/api'
 import { useModelStore } from '@/stores/modelStore'
 
 const loading = ref(false)

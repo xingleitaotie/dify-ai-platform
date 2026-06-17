@@ -5,11 +5,11 @@ spring:
   application:
     name: dify-function-service
 
-# 自定义配置：本地模型 + 向量库 + 服务地址（Day6 核心配置）
-dify:
-  # 微服务内部调用地址
-  service:
-    rag: http://localhost:8082
+# 搜索引擎查询内容
+web-search:
+  enabled: true  # matchIfMissing=true 表示不配置时默认为 true
+  searxng:
+    url: http://localhost:8002
 
 # 函数注册配置（自动加载的内置函数）
 function:

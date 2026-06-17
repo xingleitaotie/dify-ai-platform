@@ -33,20 +33,22 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="center">
+        <el-table-column label="操作" width="260" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="showProviderDetail(row)">
-              <el-icon><View /></el-icon>
-              查看模型
-            </el-button>
-            <el-button type="warning" link size="small" @click="showEditProviderDialog(row)">
-              <el-icon><Edit /></el-icon>
-              编辑
-            </el-button>
-            <el-button type="danger" link size="small" @click="deleteProvider(row)">
-              <el-icon><Delete /></el-icon>
-              删除
-            </el-button>
+            <div class="action-buttons">
+              <el-button type="primary" link size="small" @click="showProviderDetail(row)">
+                <el-icon><View /></el-icon>
+                <span class="btn-text">查看模型</span>
+              </el-button>
+              <el-button type="warning" link size="small" @click="showEditProviderDialog(row)">
+                <el-icon><Edit /></el-icon>
+                <span class="btn-text">编辑</span>
+              </el-button>
+              <el-button type="danger" link size="small" @click="deleteProvider(row)">
+                <el-icon><Delete /></el-icon>
+                <span class="btn-text">删除</span>
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -64,78 +66,108 @@
       />
     </el-card>
 
-    <!-- 供应商详情对话框（包含模型列表） -->
+    <!-- 供应商详情对话框 -->
     <el-dialog
         v-model="providerDetailVisible"
         :title="currentProvider?.providerName + ' - 模型配置'"
-        width="800px"
+        width="900px"
+        class="provider-detail-dialog"
     >
       <div class="provider-detail">
-        <div class="provider-info">
-          <el-descriptions :column="2" border size="small">
-            <el-descriptions-item label="供应商名称">{{ currentProvider?.providerName }}</el-descriptions-item>
-            <el-descriptions-item label="标识">{{ currentProvider?.providerKey }}</el-descriptions-item>
-            <el-descriptions-item label="API地址" span="2">{{ currentProvider?.baseUrl }}</el-descriptions-item>
-            <el-descriptions-item label="状态">
+        <!-- 供应商信息卡片 -->
+        <div class="provider-info-card">
+          <div class="info-header">
+            <div class="info-icon">
+              <el-icon :size="32"><Shop /></el-icon>
+            </div>
+            <div class="info-title">
+              <h3>{{ currentProvider?.providerName }}</h3>
               <el-tag :type="currentProvider?.status === 1 ? 'success' : 'danger'" size="small">
-                {{ currentProvider?.status === 1 ? '启用' : '禁用' }}
+                {{ currentProvider?.status === 1 ? '已启用' : '已禁用' }}
               </el-tag>
-            </el-descriptions-item>
-          </el-descriptions>
+            </div>
+          </div>
+          <div class="info-details">
+            <div class="info-item">
+              <span class="info-label">API地址：</span>
+              <code class="info-value">{{ currentProvider?.baseUrl }}</code>
+            </div>
+            <div class="info-item">
+              <span class="info-label">供应商标识：</span>
+              <span class="info-value">{{ currentProvider?.providerKey }}</span>
+            </div>
+          </div>
         </div>
 
-        <div class="model-list-header">
-          <span class="title">模型列表</span>
-          <el-button type="primary" size="small" @click="showAddModelDialog">
-            <el-icon><Plus /></el-icon>
-            添加模型
-          </el-button>
-        </div>
+        <!-- 模型列表区域 -->
+        <div class="model-section">
+          <div class="section-header">
+            <div class="section-title">
+              <el-icon><Grid /></el-icon>
+              <span>模型列表</span>
+            </div>
+            <el-button type="primary" size="small" @click="showAddModelDialog">
+              <el-icon><Plus /></el-icon>
+              添加模型
+            </el-button>
+          </div>
 
-        <el-table :data="currentModels" stripe style="width: 100%" size="small">
-          <el-table-column prop="modelName" label="模型名称" width="180" />
-          <el-table-column prop="modelKey" label="模型标识" width="150">
-            <template #default="{ row }">
-              <code>{{ row.modelKey }}</code>
-            </template>
-          </el-table-column>
-          <el-table-column prop="capabilityType" label="能力类型" width="120">
-            <template #default="{ row }">
-              <el-tag :type="getCapabilityTagType(row.capabilityType)" size="small">
-                {{ getCapabilityTypeLabel(row.capabilityType) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="modelSchema" label="协议" width="100">
-            <template #default="{ row }">
-              <el-tag size="small">{{ row.modelSchema || 'openai' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="70" align="center">
-            <template #default="{ row }">
-              <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
-                {{ row.status === 1 ? '启用' : '禁用' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="使用情况" width="100" align="center">
-            <template #default="{ row }">
-              <el-tag v-if="row.isUsed" type="warning" size="small">
-                系统{{ getSystemUsedLabel(row.usedBy) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="150" align="center">
-            <template #default="{ row }">
-              <el-button type="primary" link size="small" @click="showEditModelDialog(row)">
-                编辑
-              </el-button>
-              <el-button type="danger" link size="small" @click="deleteModel(row)">
-                删除
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+          <el-table
+              :data="currentModels"
+              stripe
+              class="model-table"
+              :header-cell-style="{ background: '#0f1228', color: '#ffffff', fontWeight: '600' }"
+          >
+            <el-table-column prop="modelName" label="模型名称" min-width="160">
+              <template #default="{ row }">
+                <div class="model-name-cell">
+                  <span class="model-name">{{ row.modelName }}</span>
+                  <el-tag v-if="row.isUsed" size="small" type="warning" effect="dark">使用中</el-tag>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="modelKey" label="模型标识" min-width="140">
+              <template #default="{ row }">
+                <code class="model-key">{{ row.modelKey }}</code>
+              </template>
+            </el-table-column>
+            <el-table-column prop="capabilityType" label="能力类型" width="110">
+              <template #default="{ row }">
+                <el-tag :type="getCapabilityTagType(row.capabilityType)" size="small" effect="light">
+                  {{ getCapabilityTypeLabel(row.capabilityType) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="modelSchema" label="协议" width="90">
+              <template #default="{ row }">
+                <el-tag size="small" type="info" effect="plain">{{ row.modelSchema || 'openai' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="70" align="center">
+              <template #default="{ row }">
+                <el-switch
+                    v-model="row.status"
+                    :active-value="1"
+                    :inactive-value="0"
+                    size="small"
+                    @change="updateModelStatus(row)"
+                />
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="130" align="center" fixed="right">
+              <template #default="{ row }">
+                <div class="table-action-buttons">
+                  <el-button type="primary" link size="small" @click="showEditModelDialog(row)">
+                    <el-icon><Edit /></el-icon>
+                  </el-button>
+                  <el-button type="danger" link size="small" @click="deleteModel(row)" :disabled="row.isUsed">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </div>
     </el-dialog>
 
@@ -238,8 +270,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus, View, Edit, Delete, Connection } from '@element-plus/icons-vue'
-import { providerApi } from '@/api/modelConfig'
-import { modelConfigApi } from '@/api/chat'
+import { providerApi } from '@/api'
 import { useModelStore } from '@/stores/modelStore'
 
 const loading = ref(false)
@@ -575,17 +606,29 @@ const testModelConnection = async () => {
 }
 
 // 保存模型前自动测试（可选）
-const saveModel = async () => {
-  if (!modelFormRef.value) return
-  await modelFormRef.value.validate()
+const isSubmitting = ref(false)
 
+const saveModel = async () => {
+  // 1. 重复提交拦截
+  if (isSubmitting.value) {
+    ElMessage.warning('正在提交中，请勿重复操作')
+    return
+  }
+  if (!modelFormRef.value) return
+
+  // 2. 显式接收校验结果，校验不通过直接终止
+  const valid = await modelFormRef.value.validate()
+  if (!valid) return
+
+  // 上锁
+  isSubmitting.value = true
   saving.value = true
+
   try {
     const saveData = {
       id: modelForm.id,
       providerId: modelForm.providerId,
       modelName: modelForm.modelName,
-      // 使用供应商的标识作为模型标识
       modelKey: modelForm.modelKey,
       capabilityType: modelForm.capabilityType,
       modelSchema: modelForm.modelSchema,
@@ -603,23 +646,32 @@ const saveModel = async () => {
 
     if (res.code === 200 && res.data === true) {
       ElMessage.success(isEditModel.value ? '更新成功' : '新增成功')
+      // 立刻关闭弹窗，不用等刷新
       modelDialogVisible.value = false
 
-      // 刷新当前供应商详情
-      await showProviderDetail(currentProvider.value)
-
-      // 通知系统模型页面刷新数据
-      await modelStore.refreshAllModels()
-      window.dispatchEvent(new CustomEvent('model-data-changed'))
-
+      // 异步刷新，不阻塞主线程
+      showProviderDetail(currentProvider.value)
+          .then(() => {
+            // 同步更新全局模型仓库 + 通知其他Tab刷新
+            modelStore.refreshAllModels()
+            window.dispatchEvent(new CustomEvent('model-data-changed'))
+          })
     } else {
       ElMessage.error(res.msg || '操作失败')
     }
   } catch (error) {
     console.error('保存模型失败:', error)
-    ElMessage.error('保存失败')
+    // 精准区分429限流错误
+    const status = error?.response?.status
+    if (status === 429) {
+      ElMessage.warning('操作过于频繁，请勿连续点击，请稍后重试')
+    } else {
+      ElMessage.error('保存失败，请检查网络或配置')
+    }
   } finally {
+    // 无论成功失败都解锁
     saving.value = false
+    isSubmitting.value = false
   }
 }
 
@@ -724,5 +776,224 @@ onMounted(() => {
 
 :deep(.el-form-item__label) {
   color: #cbd5e6 !important;
+}
+
+/* 操作按钮组 - 防止换行 */
+.action-buttons {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.action-buttons .el-button {
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.action-buttons .el-button .btn-text {
+  margin-left: 4px;
+}
+
+/* 响应式：小屏幕时隐藏文字，只显示图标 */
+@media screen and (max-width: 1200px) {
+  .action-buttons .btn-text {
+    display: none;
+  }
+
+  .action-buttons .el-button {
+    padding: 4px 6px;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .action-buttons {
+    gap: 2px;
+  }
+
+  .action-buttons .el-button {
+    padding: 4px;
+  }
+}
+
+/* ========== 供应商详情对话框样式 ========== */
+.provider-detail-dialog :deep(.el-dialog) {
+  border-radius: 20px !important;
+}
+
+.provider-detail-dialog :deep(.el-dialog__body) {
+  padding: 20px 24px;
+}
+
+/* 供应商信息卡片 */
+.provider-info-card {
+  background: linear-gradient(135deg, #1a1f3a 0%, #0f1228 100%);
+  border: 1px solid #2a2f4a;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.info-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #2a2f4a;
+}
+
+.info-icon {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.info-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.info-title h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.info-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.info-item {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.info-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #94a3b8;
+  min-width: 80px;
+}
+
+.info-value {
+  font-size: 14px;
+  color: #cbd5e6;
+  font-family: monospace;
+  word-break: break-all;
+}
+
+/* 模型列表区域 */
+.model-section {
+  margin-top: 8px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.section-title .el-icon {
+  color: #a78bfa;
+  font-size: 18px;
+}
+
+/* 模型表格样式 */
+.model-table {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.model-table :deep(.el-table) {
+  background: transparent !important;
+}
+
+.model-table :deep(.el-table__header th) {
+  background: #0f1228 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  padding: 14px 0 !important;
+  border-bottom: 2px solid #2a2f4a !important;
+}
+
+.model-table :deep(.el-table__body td) {
+  color: #cbd5e6 !important;
+  border-bottom: 1px solid #2a2f4a !important;
+  padding: 12px 0 !important;
+  font-size: 13px !important;
+}
+
+.model-table :deep(.el-table__body tr:hover > td) {
+  background: rgba(102, 126, 234, 0.05) !important;
+}
+
+/* 表格内元素样式 */
+.model-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.model-name {
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.model-key {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  background: #0f1228;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: #a78bfa;
+}
+
+.table-action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.table-action-buttons .el-button {
+  padding: 4px 8px;
+}
+
+/* 添加模型按钮区域 */
+.add-model-btn {
+  transition: all 0.2s ease;
+}
+
+.add-model-btn:hover {
+  transform: translateY(-1px);
 }
 </style>

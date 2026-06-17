@@ -9,13 +9,15 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface AiFunction {
-
     // 函数名称（唯一）
     String name();
 
     // 函数描述（给大模型看）
     String desc();
 
-    // 参数描述
-    String[] params() default {};
+    // 参数定义（JSON Schema 格式字符串）
+    String params() default "";
+
+    // 是否启用
+    boolean enabled() default true;
 }

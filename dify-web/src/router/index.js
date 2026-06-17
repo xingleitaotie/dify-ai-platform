@@ -5,7 +5,7 @@ import { useUserStore } from '@/stores/user'
 
 // 工作流组件直接导入（已经在之前导入，保持不变）
 import WorkflowList from '@/views/workflow/WorkflowList.vue'
-import WorkflowEditor from '@/views/workflow/WorkflowEditor.vue'
+import WorkflowEditor from '@/views/workflow/WorkflowEditor/index.vue'
 
 const routes = [
     {
@@ -51,10 +51,10 @@ const routes = [
                 meta: { title: '工作流', icon: 'Share', requiresAuth: true }
             },
             {
-                path: 'workflow/editor/:id?',
+                path: 'workflow/editor/:id?',   // 改为相对路径
                 name: 'WorkflowEditor',
                 component: WorkflowEditor,
-                meta: { title: '工作流编辑器', icon: 'Edit', requiresAuth: true }
+                meta: { title: '工作流编辑器', requiresAuth: true }   // 显式添加 requiresAuth
             },
             {
                 path: 'prompt',
@@ -67,12 +67,6 @@ const routes = [
                 name: 'Settings',
                 component: () => import('@/views/Settings.vue'),
                 meta: { title: '设置', icon: 'Setting', requiresAuth: true }
-            },
-            {
-                path: 'test',
-                name: 'Test',
-                component: () => import('@/views/Test.vue'),
-                meta: { title: '测试', icon: 'Tools', requiresAuth: true }
             }
         ]
     },

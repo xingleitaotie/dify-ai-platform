@@ -5,6 +5,7 @@ import com.washy.dify.common.entity.llm.ChatRequest;
 import com.washy.dify.common.entity.llm.ChatResponse;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -55,5 +56,15 @@ public interface ChatClient {
      * 测试连接
      */
     boolean testConnection();
+
+    /**
+     * 支持工具调用的方法
+     * @param messages
+     * @param tools
+     * @param toolChoice
+     * @return
+     */
+    String chatWithTools(List<ChatMessage> messages, List<Map<String, Object>> tools,
+                         String toolChoice);
 
 }

@@ -127,6 +127,54 @@ public class AliyunChatClient implements ChatClient {
     }
 
     @Override
+    public String chatWithTools(List<ChatMessage> messages, List<Map<String, Object>> tools,
+                         String toolChoice){
+        try {
+            HttpHeaders headers = buildHeaders();
+            List<Map<String, String>> apiMessages = convertToApiMessages(messages);
+
+            Map<String, Object> request = new HashMap<>();
+            request.put("model", modelConfig.getModelKey());
+            request.put("messages", apiMessages);
+
+            String url = buildUrl();
+            if (tools != null && !tools.isEmpty()) {
+                // 有工具调用，使用 OpenAI 兼容模式
+                request.put("tools", tools);
+                request.put("tool_choice", "auto");
+                log.info("使用 OpenAI 兼容模式，tools: {}", tools.size());
+            }
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
+            JSONObject response = restTemplate.postForObject(url, entity, JSONObject.class);
+
+            return parseResponse(response, tools != null);
+
+        } catch (Exception e) {
+            log.error("阿里云通义千问调用失败", e);
+            throw new ModelProviderException("调用失败：" + e.getMessage());
+        }
+    }
+
+    private String parseResponse(JSONObject response, boolean isToolCallMode) {
+        if (response == null) {
+            throw new ModelProviderException("API返回结果为空");
+        }
+
+        if (isToolCallMode) {
+            // OpenAI 兼容模式，直接返回原始 JSON（包含 tool_calls）
+            return response.toJSONString();
+        } else {
+            // DashScope 原生模式，提取 output.text
+            String result = response.getJSONObject("output").getString("text");
+            if (result == null) {
+                throw new ModelProviderException("API返回格式错误");
+            }
+            return result;
+        }
+    }
+
+    @Override
     public void chatStream(List<ChatMessage> messages, Double temperature, Integer maxTokens, Consumer<String> consumer) {
         try {
             if (messages == null || messages.isEmpty()) {
@@ -274,16 +322,37 @@ public class AliyunChatClient implements ChatClient {
     }
 
     /**
-     * 转换消息格式
+     * 转换消息格式（兼容 LinkedHashMap）
      */
-    private List<Map<String, String>> convertToApiMessages(List<ChatMessage> messages) {
+    private List<Map<String, String>> convertToApiMessages(List<?> messages) {
         List<Map<String, String>> apiMessages = new ArrayList<>();
-        for (ChatMessage msg : messages) {
+
+        for (Object obj : messages) {
             Map<String, String> apiMsg = new HashMap<>();
-            apiMsg.put("role", msg.getRole());
-            apiMsg.put("content", msg.getContent() != null ? msg.getContent() : "");
+
+            if (obj instanceof ChatMessage) {
+                // 正常情况：ChatMessage 对象
+                ChatMessage msg = (ChatMessage) obj;
+                apiMsg.put("role", msg.getRole());
+                apiMsg.put("content", msg.getContent() != null ? msg.getContent() : "");
+            } else if (obj instanceof Map) {
+                // HTTP 反序列化后：LinkedHashMap
+                @SuppressWarnings("unchecked")
+                Map<String, Object> map = (Map<String, Object>) obj;
+
+                String role = map.get("role") != null ? map.get("role").toString() : "";
+                String content = map.get("content") != null ? map.get("content").toString() : "";
+
+                apiMsg.put("role", role);
+                apiMsg.put("content", content);
+            } else {
+                log.warn("未知的消息类型: {}", obj != null ? obj.getClass().getName() : "null");
+                continue;
+            }
+
             apiMessages.add(apiMsg);
         }
+
         return apiMessages;
     }
 

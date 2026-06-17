@@ -10,13 +10,18 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
+import java.util.Map;
 
 @FeignClient(name = "dify-function-service")
 public interface FunctionFeignClient {
 
     @GetMapping("/api/function/list")
-    Result<List<FunctionInfo>> getFunctionList();
+    Result<List<FunctionInfo>> getToolsList();
 
     @PostMapping("/api/function/call")
     Result<FunctionExecuteResult> invokeFunction(@RequestBody FunctionCallRequest dto);
+
+    // 调用 /tools 接口（返回包装格式）
+    @GetMapping("/api/function/tools")
+    Result<Map<String, Object>> getTools();
 }

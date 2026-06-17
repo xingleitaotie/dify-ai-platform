@@ -3,13 +3,11 @@ package com.washy.dify.agent.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.washy.dify.agent.domain.AgentConfig;
 import com.washy.dify.agent.domain.AgentKbBind;
-import com.washy.dify.agent.domain.AgentToolBind;
 import com.washy.dify.agent.domain.dto.AgentStreamChatRequest;
 import com.washy.dify.common.entity.llm.ChatMessage;
 import com.washy.dify.common.entity.llm.ChatRequestDTO;
 import com.washy.dify.common.entity.llm.StreamChatRequestDTO;
 import com.washy.dify.common.result.Result;
-import com.washy.dify.feign.client.FunctionFeignClient;
 import com.washy.dify.feign.client.LlmFeignClient;
 import com.washy.dify.feign.client.RagFeignClient;
 import lombok.RequiredArgsConstructor;
@@ -18,9 +16,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import org.springframework.util.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -40,12 +38,10 @@ import java.util.concurrent.atomic.AtomicReference;
 public class AgentStreamChatService {
 
     private final AgentConfigService agentConfigService;
-    private final AgentToolBindService agentToolBindService;
     private final AgentKbBindService agentKbBindService;
     private final AgentChatMemoryService memoryService;
     private final LlmFeignClient llmFeign;
     private final RagFeignClient ragFeign;
-    private final FunctionFeignClient functionFeign;
 
     @Value("${llm.service-url}")
     private String llmServiceUrl;
@@ -67,12 +63,6 @@ public class AgentStreamChatService {
             send(emitter, "🤖 Agent 启动中...");
             AgentConfig agent = agentConfigService.getById(agentId);
 
-            send(emitter, "📦 加载工具...");
-            List<AgentToolBind> tools = agentToolBindService.lambdaQuery()
-                    .eq(AgentToolBind::getAgentId, agentId)
-                    .eq(AgentToolBind::getIsEnabled, 1)
-                    .list();
-
             send(emitter, "📚 加载知识库...");
             List<AgentKbBind> kbs = agentKbBindService.lambdaQuery()
                     .eq(AgentKbBind::getAgentId, agentId)
@@ -81,14 +71,6 @@ public class AgentStreamChatService {
             // 记忆
             String history = memoryService.buildMemoryContext(sessionId);
             send(emitter, "🧠 记忆加载完成");
-
-            // 获取模型配置ID
-            Long modelConfigId;
-            if (req.getModelConfigId() != null && !req.getModelConfigId().isEmpty()) {
-                modelConfigId = Long.parseLong(req.getModelConfigId());
-            } else {
-                modelConfigId = null;
-            }
 
             // ========== 并行执行 RAG 和 Function Calling ==========
             send(emitter, "🔍 并行检索知识库 & 调用工具...");
@@ -133,11 +115,11 @@ public class AgentStreamChatService {
                 }
             });
             // 2. Function Calling 任务
+            send(emitter, "📦 加载工具...");
             CompletableFuture<Void> functionFuture = CompletableFuture.runAsync(() -> {
                 try {
                     ChatRequestDTO dto = new ChatRequestDTO();
                     dto.setMessage(buildUserPrompt(query));
-                    dto.setConfigId(modelConfigId);
 
                     Result<String> decRes = llmFeign.functionChat(dto);
                     if (decRes != null && decRes.getCode() == 200 && decRes.getData() != null) {
@@ -166,8 +148,7 @@ public class AgentStreamChatService {
             send(emitter, "✅ 检索和工具调用完成，开始生成回答...\n");
 
             // ========== 最终回答 ==========
-            String finalAnswer = generateFinalAnswer(agent, query, ragContext, toolResult, history,
-                    modelConfigId, sessionId, emitter);
+            String finalAnswer = generateFinalAnswer(agent, query, ragContext, toolResult, history, sessionId, emitter);
 
             // 保存记忆（保存最终回答）
             memoryService.saveMemory(agentId, sessionId, query, finalAnswer);
@@ -190,7 +171,7 @@ public class AgentStreamChatService {
      * @return 完整的回答内容（用于保存记忆）
      */
     private String generateFinalAnswer(AgentConfig agent, String query, String ragContext,
-                                       String toolResult, String history, Long modelConfigId,
+                                       String toolResult, String history,
                                        String sessionId, SseEmitter emitter) {
 
         send(emitter, "📝 生成回答...\n");
@@ -206,7 +187,6 @@ public class AgentStreamChatService {
         StreamChatRequestDTO requestDTO = new StreamChatRequestDTO();
         requestDTO.setSessionId(sessionId);
         requestDTO.setMessages(messages);
-        requestDTO.setConfigId(modelConfigId);
 
         // 收集完整回答并流式输出
         StringBuilder fullAnswer = new StringBuilder();

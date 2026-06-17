@@ -10,7 +10,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/function")
@@ -37,5 +40,22 @@ public class FunctionController {
         log.info("接收请求：执行AI函数调用，函数名：{}", callDTO.getFunctionName());
         FunctionExecuteResult result = functionCallService.callFunction(callDTO);
         return Result.success(result);
+    }
+
+    /**
+     * 获取大模型 Function Calling 格式的函数列表
+     * 这是给大模型使用的标准格式
+     */
+    @GetMapping("/tools")
+    public Result<Map<String, Object>> getTools() {
+        log.info("接收请求：获取大模型工具列表");
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("tools", functionRegistry.getFunctionListForLLM());
+
+        // 可选：返回工具调用说明
+        response.put("tool_choice", "auto");  // auto: 自动选择, none: 不调用, required: 必须调用
+
+        return Result.success(response);
     }
 }

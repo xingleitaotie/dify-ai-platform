@@ -435,8 +435,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Search, CopyDocument, Check, MagicStick, Cpu, Warning, Refresh } from '@element-plus/icons-vue'
-import { promptApi } from '@/api/prompt'
-import { systemModelApi, providerApi } from '@/api/modelConfig'
+import { promptApi, systemModelApi, providerApi } from '@/api'
 
 const router = useRouter()
 

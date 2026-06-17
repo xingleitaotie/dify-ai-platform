@@ -19,7 +19,8 @@ public class FunctionConstant {
     /**
      * 错误信息
      */
-    public static final String FUNCTION_NOT_EXIST = "函数不存在：";
-    public static final String PARAM_ERROR = "参数解析错误：";
     public static final String EXECUTE_ERROR = "函数执行失败：";
+
+    public static final String FUNCTION_NOT_FOUND = "函数不存在：";
+    public static final String PARAM_ERROR = "参数解析错误：";
 }

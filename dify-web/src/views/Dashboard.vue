@@ -1,10 +1,11 @@
 <template>
   <div class="dashboard">
-    <div class="dashboard-header fade-in-up">
+    <!-- 欢迎头部 -->
+    <div class="dashboard-header">
       <div class="header-content">
         <h1>
           <span class="welcome-text">欢迎回来，</span>
-          <span class="username-glow">{{ userStore.username }}</span>
+          <span class="username">{{ userStore.username }}</span>
         </h1>
         <p>✨ Dify AI 平台为您提供智能应用开发服务</p>
       </div>
@@ -13,47 +14,48 @@
       </div>
     </div>
 
-    <el-row :gutter="24" class="stats-row">
-      <el-col :span="6" v-for="(stat, index) in statsCards" :key="index">
-        <div class="stat-card glass-card" :style="{ animationDelay: `${index * 0.1}s` }">
+    <!-- 统计卡片 -->
+    <el-row :gutter="20" class="stats-row">
+      <el-col :xs="24" :sm="12" :md="6" v-for="(stat, index) in statsCards" :key="index">
+        <div class="stat-card" :style="{ animationDelay: `${index * 0.05}s` }">
           <div class="stat-icon" :class="stat.iconClass">
-            <el-icon :size="28"><component :is="stat.icon" /></el-icon>
+            <el-icon :size="24"><component :is="stat.icon" /></el-icon>
           </div>
           <div class="stat-info">
             <div class="stat-value">{{ stat.value }}</div>
             <div class="stat-label">{{ stat.label }}</div>
             <div v-if="stat.sub" class="stat-sub">{{ stat.sub }}</div>
           </div>
-          <div class="stat-glow"></div>
         </div>
       </el-col>
     </el-row>
 
-    <el-row :gutter="24">
-      <el-col :span="12">
-        <div class="feature-card glass-card slide-in-left">
+    <!-- 快捷操作和最近活动 -->
+    <el-row :gutter="20" class="action-row">
+      <el-col :xs="24" :md="12">
+        <div class="feature-card">
           <div class="card-header">
             <span class="card-title">🚀 快速开始</span>
           </div>
           <div class="quick-actions">
             <button class="action-btn primary" @click="goToChat">
               <el-icon><ChatDotRound /></el-icon>
-              开始对话
+              <span>开始对话</span>
             </button>
             <button class="action-btn" @click="goToKnowledgeBase">
               <el-icon><Document /></el-icon>
-              上传文档
+              <span>上传文档</span>
             </button>
             <button class="action-btn" @click="goToAgent">
               <el-icon><Cpu /></el-icon>
-              创建Agent
+              <span>创建Agent</span>
             </button>
           </div>
         </div>
       </el-col>
 
-      <el-col :span="12">
-        <div class="feature-card glass-card slide-in-right">
+      <el-col :xs="24" :md="12">
+        <div class="feature-card">
           <div class="card-header">
             <span class="card-title">📊 最近活动</span>
           </div>
@@ -62,12 +64,12 @@
               <el-icon><Bell /></el-icon>
               <span>暂无活动记录</span>
             </div>
-            <div v-for="(activity, idx) in recentActivities" :key="activity.id" class="activity-item" :style="{ animationDelay: `${idx * 0.05}s` }">
-              <div class="activity-icon">
-                <el-icon><component :is="getActivityIcon(activity.type)" /></el-icon>
+            <div v-for="(activity, idx) in recentActivities" :key="activity.id" class="activity-item">
+              <div class="activity-icon" :style="{ backgroundColor: getActivityColor(activity.type) }">
+                <el-icon size="14"><component :is="getActivityIcon(activity.type)" /></el-icon>
               </div>
               <div class="activity-content">
-                <span>{{ activity.content }}</span>
+                <span class="activity-text">{{ activity.content }}</span>
                 <span class="activity-time">{{ activity.time }}</span>
               </div>
             </div>
@@ -76,7 +78,8 @@
       </el-col>
     </el-row>
 
-    <div class="app-management glass-card fade-in-up">
+    <!-- 应用管理 -->
+    <div class="app-card">
       <div class="card-header">
         <span class="card-title">📱 我的应用</span>
         <button class="create-btn" @click="showCreateApp = true">
@@ -84,19 +87,19 @@
           创建应用
         </button>
       </div>
-      <el-table :data="userStore.apps" stripe class="custom-table">
-        <el-table-column prop="appName" label="应用名称" />
-        <el-table-column prop="appKey" label="App Key" />
-        <el-table-column prop="appSecret" label="App Secret" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态">
+      <el-table :data="userStore.apps" stripe class="custom-table" empty-text="暂无应用，点击上方按钮创建">
+        <el-table-column prop="appName" label="应用名称" min-width="150" />
+        <el-table-column prop="appKey" label="App Key" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="appSecret" label="App Secret" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="status" label="状态" width="80" align="center">
           <template #default="{ row }">
             <span class="status-badge" :class="row.status === 1 ? 'active' : 'inactive'">
               {{ row.status === 1 ? '启用' : '禁用' }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="100">
+        <el-table-column prop="createTime" label="创建时间" width="170" />
+        <el-table-column label="操作" width="70" align="center">
           <template #default="{ row }">
             <button class="delete-btn" @click="handleDeleteApp(row.id)">
               <el-icon><Delete /></el-icon>
@@ -107,7 +110,7 @@
     </div>
 
     <!-- 创建应用对话框 -->
-    <el-dialog v-model="showCreateApp" title="创建应用" class="custom-dialog">
+    <el-dialog v-model="showCreateApp" title="创建应用" width="400px" class="custom-dialog">
       <el-form :model="newApp" :rules="appRules" ref="appFormRef">
         <el-form-item label="应用名称" prop="appName">
           <el-input v-model="newApp.appName" placeholder="请输入应用名称" />
@@ -127,10 +130,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ChatDotRound, Document, Cpu, Plus, Bell, Delete, Tools, Collection } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
-import { agentApi } from '@/api/agent'
-import { functionApi } from '@/api/function'
-import { chatApi } from '@/api/chat'
-import { ragApi } from '@/api/rag'
+import {chatApi, ragApi, functionApi, agentApi } from '@/api'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -158,20 +158,23 @@ const statsData = reactive({
 
 const statsCards = computed(() => [
   { icon: 'ChatDotRound', iconClass: 'chat', value: statsData.conversations, label: '总对话次数', sub: null },
-  { icon: 'Collection', iconClass: 'kb', value: statsData.knowledgeBases, label: '知识库数量', sub: `文档: ${statsData.documents} | 分块: ${statsData.documentChunks}` },
-  { icon: 'Cpu', iconClass: 'agent', value: statsData.agents, label: 'Agent数量', sub: `已启用: ${statsData.enabledAgents}` },
+  { icon: 'Collection', iconClass: 'kb', value: statsData.knowledgeBases, label: '知识库数量', sub: `📄 ${statsData.documents} 文档 | 🧩 ${statsData.documentChunks} 分块` },
+  { icon: 'Cpu', iconClass: 'agent', value: statsData.agents, label: 'Agent数量', sub: `✅ 已启用: ${statsData.enabledAgents}` },
   { icon: 'Tools', iconClass: 'tool', value: statsData.tools, label: '工具数量', sub: null }
 ])
 
 const recentActivities = ref([])
 
-// 获取图标
 const getActivityIcon = (type) => {
   const icons = { agent: 'Cpu', kb: 'Collection', app: 'Plus' }
   return icons[type] || 'Bell'
 }
 
-// API 调用函数（保持原有逻辑，只简化展示）
+const getActivityColor = (type) => {
+  const colors = { agent: '#10b981', kb: '#f59e0b', app: '#667eea' }
+  return colors[type] || '#64748b'
+}
+
 const loadStats = async () => {
   try {
     const [convRes, kbRes, agentRes, toolRes] = await Promise.all([
@@ -225,7 +228,7 @@ const loadRecentActivities = async () => {
         if (app.createTime) activities.push({ id: `app_${app.id}`, type: 'app', content: `创建了应用 "${app.appName}"`, time: formatTime(app.createTime), timestamp: new Date(app.createTime).getTime() })
       })
     }
-    recentActivities.value = activities.sort((a, b) => b.timestamp - a.timestamp).slice(0, 10)
+    recentActivities.value = activities.sort((a, b) => b.timestamp - a.timestamp).slice(0, 6)
   } catch (error) {
     console.error('加载最近活动失败', error)
   }
@@ -235,8 +238,10 @@ const formatTime = (time) => {
   if (!time) return ''
   const date = new Date(time)
   const diff = Date.now() - date.getTime()
+  if (diff < 60000) return '刚刚'
   if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
   return `${date.getMonth() + 1}-${date.getDate()}`
 }
 
@@ -283,50 +288,60 @@ onActivated(async () => {
 <style scoped>
 .dashboard {
   padding: 24px;
-  animation: fadeIn 0.6s ease-out;
+  min-height: 100%;
+  background: #0a0e27;
 }
 
-/* 头部区域 */
+/* ========== 欢迎头部 ========== */
 .dashboard-header {
   position: relative;
-  margin-bottom: 32px;
-  padding: 32px;
-  background: linear-gradient(135deg, #1a1f3a 0%, #0f1228 100%) !important;  /* 改成实色渐变 */
-  border-radius: 24px;
+  margin-bottom: 28px;
+  padding: 28px 32px;
+  background: linear-gradient(135deg, #1a1f3a 0%, #0f1228 100%);
+  border-radius: 20px;
+  border: 1px solid #2a2f4a;
   overflow: hidden;
-  border: 1px solid #2a2f4a;  /* 加个边框更明显 */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .header-content h1 {
-  font-size: 32px;
-  margin-bottom: 8px;
-  color: #ffffff !important;
+  font-size: 28px;
+  margin-bottom: 6px;
+  color: #ffffff;
 }
 
 .welcome-text {
-  color: #cbd5e6 !important;  /* 亮灰色，不是深灰 */
+  color: #94a3b8;
+  font-weight: 400;
 }
 
-.username-glow {
-  color: #667eea !important;  /* 保持品牌色但更亮 */
+.username {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 600;
 }
 
 .header-content p {
-  color: #cbd5e6 !important;
+  color: #64748b;
+  font-size: 14px;
 }
 
 .header-decoration {
   position: absolute;
-  right: -50px;
-  top: -50px;
-  width: 200px;
-  height: 200px;
+  right: -30px;
+  top: -30px;
+  width: 150px;
+  height: 150px;
 }
 
 .orb {
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle, rgba(102, 126, 234, 0.3), transparent);
+  background: radial-gradient(circle, rgba(102, 126, 234, 0.15), transparent);
   border-radius: 50%;
   animation: rotate 20s linear infinite;
 }
@@ -336,29 +351,37 @@ onActivated(async () => {
   to { transform: rotate(360deg); }
 }
 
-/* 统计卡片 */
+/* ========== 统计卡片 ========== */
 .stats-row {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .stat-card {
-  position: relative;
-  padding: 24px;
+  background: #1a1f3a;
+  border: 1px solid #2a2f4a;
+  border-radius: 16px;
+  padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  overflow: hidden;
-  animation: fadeInUp 0.6s ease-out both;
+  transition: all 0.3s ease;
+  animation: fadeInUp 0.4s ease-out both;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  border-color: #667eea;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
 }
 
 .stat-icon {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
-  transition: all 0.3s ease;
+  border-radius: 14px;
+  flex-shrink: 0;
 }
 
 .stat-icon.chat { background: linear-gradient(135deg, #667eea, #764ba2); }
@@ -366,60 +389,49 @@ onActivated(async () => {
 .stat-icon.agent { background: linear-gradient(135deg, #10b981, #3b82f6); }
 .stat-icon.tool { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
 
-.stat-card:hover .stat-icon {
-  transform: scale(1.1) rotate(5deg);
-}
-
 .stat-info {
   flex: 1;
 }
 
 .stat-value {
-  font-size: 32px;
-  font-weight: 700 !important;
-  color: #ffffff !important;
-  letter-spacing: -0.5px;
-  background: none !important;
-  -webkit-background-clip: unset !important;
-  background-clip: unset !important;
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
 }
 
 .stat-label {
-  font-size: 14px;
-  color: var(--text-secondary);
+  font-size: 13px;
+  color: #94a3b8;
   margin-top: 4px;
 }
 
 .stat-sub {
   font-size: 11px;
-  color: var(--text-muted);
+  color: #64748b;
   margin-top: 4px;
 }
 
-.stat-glow {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--primary-gradient);
-  transform: scaleX(0);
-  transition: transform 0.3s ease;
+/* ========== 功能卡片 ========== */
+.action-row {
+  margin-bottom: 20px;
 }
 
-.stat-card:hover .stat-glow {
-  transform: scaleX(1);
-}
-
-/* 功能卡片 */
 .feature-card {
-  padding: 24px;
-  height: 280px;
-  animation: fadeInUp 0.6s ease-out both;
+  background: #1a1f3a;
+  border: 1px solid #2a2f4a;
+  border-radius: 16px;
+  padding: 20px;
+  height: 260px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  animation: fadeInUp 0.4s ease-out both;
 }
 
-.feature-card:first-child { animation-delay: 0.2s; }
-.feature-card:last-child { animation-delay: 0.3s; }
+.feature-card:hover {
+  border-color: #667eea;
+}
 
 .card-header {
   display: flex;
@@ -429,22 +441,21 @@ onActivated(async () => {
 }
 
 .card-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  background: var(--primary-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #ffffff;
 }
 
+/* 快捷操作按钮 */
 .quick-actions {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   flex-direction: column;
+  flex: 1;
 }
 
 .action-btn {
-  padding: 14px 24px;
+  padding: 12px 20px;
   border: none;
   border-radius: 12px;
   font-size: 14px;
@@ -453,52 +464,58 @@ onActivated(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
-  border: 1px solid var(--glass-border);
+  gap: 10px;
+  background: #0f1228;
+  color: #cbd5e6;
+  border: 1px solid #2a2f4a;
 }
 
 .action-btn.primary {
-  background: var(--primary-gradient);
+  background: linear-gradient(135deg, #667eea, #764ba2);
   border: none;
+  color: #ffffff;
 }
 
 .action-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
 }
 
+.action-btn.primary:hover {
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.action-btn:not(.primary):hover {
+  border-color: #667eea;
+  color: #a78bfa;
+}
+
+/* 最近活动 */
 .activities {
-  max-height: 200px;
+  flex: 1;
   overflow-y: auto;
+  padding-right: 4px;
 }
 
 .activity-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  transition: all 0.3s ease;
-  animation: fadeInUp 0.4s ease-out both;
+  padding: 12px 0;
+  border-bottom: 1px solid #2a2f4a;
 }
 
-.activity-item:hover {
-  background: rgba(102, 126, 234, 0.1);
-  transform: translateX(4px);
+.activity-item:last-child {
+  border-bottom: none;
 }
 
 .activity-icon {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: rgba(102, 126, 234, 0.2);
-  color: var(--primary-color);
+  flex-shrink: 0;
 }
 
 .activity-content {
@@ -506,85 +523,124 @@ onActivated(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+}
+
+.activity-text {
+  font-size: 13px;
+  color: #cbd5e6;
 }
 
 .activity-time {
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: 11px;
+  color: #64748b;
+  flex-shrink: 0;
 }
 
 .empty-activities {
   text-align: center;
-  padding: 40px;
-  color: var(--text-muted);
+  padding: 40px 20px;
+  color: #64748b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
-/* 应用管理 */
-.app-management {
-  margin-top: 24px;
-  padding: 24px;
-  animation: fadeInUp 0.6s ease-out 0.4s both;
+/* ========== 应用管理卡片 ========== */
+.app-card {
+  background: #1a1f3a;
+  border: 1px solid #2a2f4a;
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 0;
+  animation: fadeInUp 0.4s ease-out both;
 }
 
 .create-btn {
-  padding: 8px 20px;
-  background: var(--primary-gradient);
+  padding: 8px 18px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
   border: none;
-  border-radius: 8px;
-  color: white;
+  border-radius: 10px;
+  color: #ffffff;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  font-size: 13px;
 }
 
 .create-btn:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .delete-btn {
   background: none;
   border: none;
-  color: var(--danger);
+  color: #f87171;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 6px;
   border-radius: 6px;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .delete-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  transform: scale(1.1);
+  background: rgba(248, 113, 113, 0.15);
+  transform: scale(1.05);
+}
+
+/* 表格样式 */
+.custom-table :deep(.el-table) {
+  background: transparent;
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+}
+
+.custom-table :deep(.el-table__header th) {
+  background: #0f1228;
+  color: #94a3b8;
+  font-weight: 500;
+  font-size: 13px;
+  border-bottom: 1px solid #2a2f4a;
+}
+
+.custom-table :deep(.el-table__body td) {
+  color: #cbd5e6;
+  border-bottom: 1px solid #2a2f4a;
+}
+
+.custom-table :deep(.el-table__body tr:hover > td) {
+  background: rgba(102, 126, 234, 0.05);
 }
 
 /* 状态标签 */
 .status-badge {
   display: inline-block;
-  padding: 4px 12px;
+  padding: 2px 10px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 500;
 }
 
 .status-badge.active {
-  background: rgba(16, 185, 129, 0.2);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .status-badge.inactive {
-  background: rgba(100, 116, 139, 0.2);
-  color: var(--text-muted);
-  border: 1px solid rgba(100, 116, 139, 0.5);
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.3);
 }
 
-/* 动画 */
+/* ========== 动画 ========== */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -592,15 +648,80 @@ onActivated(async () => {
   }
 }
 
-.fade-in-up {
-  animation: fadeInUp 0.6s ease-out;
+/* ========== 对话框样式 ========== */
+:deep(.el-dialog) {
+  background: #1a1f3a;
+  border: 1px solid #2a2f4a;
+  border-radius: 16px;
 }
 
-.slide-in-left {
-  animation: fadeInUp 0.6s ease-out;
+:deep(.el-dialog__header) {
+  border-bottom: 1px solid #2a2f4a;
+  padding: 16px 20px;
 }
 
-.slide-in-right {
-  animation: fadeInUp 0.6s ease-out 0.1s;
+:deep(.el-dialog__title) {
+  color: #ffffff;
+}
+
+:deep(.el-dialog__body) {
+  padding: 20px;
+}
+
+:deep(.el-dialog__footer) {
+  border-top: 1px solid #2a2f4a;
+  padding: 16px 20px;
+}
+
+:deep(.el-form-item__label) {
+  color: #cbd5e6;
+}
+
+:deep(.el-input__wrapper) {
+  background: #0f1228;
+  border: 1px solid #2a2f4a;
+  border-radius: 10px;
+}
+
+:deep(.el-input__inner) {
+  color: #ffffff;
+}
+
+/* ========== 响应式 ========== */
+@media screen and (max-width: 768px) {
+  .dashboard {
+    padding: 16px;
+  }
+
+  .dashboard-header {
+    padding: 20px;
+  }
+
+  .header-content h1 {
+    font-size: 22px;
+  }
+
+  .stat-card {
+    padding: 16px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+  }
+
+  .feature-card {
+    height: auto;
+    margin-bottom: 16px;
+  }
+
+  .action-btn {
+    padding: 10px 16px;
+  }
+
+  .activity-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
 }
 </style>

@@ -847,11 +847,7 @@
 import { ref, reactive, watch, onMounted, inject, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowDown, Delete, Plus, MagicStick, CopyDocument, Check, VideoPlay } from '@element-plus/icons-vue'
-import { functionApi } from '@/api/function'
-import { agentApi } from '@/api/agent'
-import { modelConfigApi } from '@/api/chat'
-import { ragApi } from '@/api/rag'
-import { promptApi } from '@/api/prompt'
+import { functionApi, agentApi, ragApi, promptApi } from '@/api'
 
 // ==================== 提示词生成相关 ====================
 const showPromptGeneratorDialog = ref(false)
@@ -1274,10 +1270,11 @@ const nodeOutputVars = inject('nodeOutputVars', [])
 
 const modelConfigList = ref([])
 const selectedModelDetail = ref(null)
-
+//后面改
 const loadModelConfigs = async () => {
   try {
-    const res = await modelConfigApi.getEnabledConfigs()
+    // const res = await modelConfigApi.getEnabledConfigs()
+    const res = ''
     console.log('模型配置API响应:', res)
     if (res.code === 200 && res.data) {
       modelConfigList.value = res.data

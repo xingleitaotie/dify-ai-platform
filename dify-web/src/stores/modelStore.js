@@ -1,3 +1,4 @@
+// stores/modelStore.js
 import { defineStore } from 'pinia'
 
 export const useModelStore = defineStore('model', {
@@ -6,7 +7,9 @@ export const useModelStore = defineStore('model', {
         allModels: [],
         providers: [],
         capabilities: [],
-        lastUpdateTime: null
+        lastUpdateTime: null,
+        // 新增：数据变更版本号，每次变更递增
+        dataVersion: 0
     }),
 
     actions: {
@@ -26,10 +29,22 @@ export const useModelStore = defineStore('model', {
             this.capabilities = capabilities
         },
 
-        // 刷新所有模型数据
+        // 刷新所有模型数据（触发重新加载）
         async refreshAllModels() {
             // 触发重新加载，由各个组件监听并重新获取数据
             this.lastUpdateTime = Date.now()
+        },
+
+        // 新增：标记数据已变更（轻量级，不触发加载）
+        markDataChanged() {
+            this.dataVersion++
+            this.lastUpdateTime = Date.now()
+            console.log('模型数据已变更，版本号:', this.dataVersion)
+        },
+
+        // 新增：获取当前数据版本号
+        getDataVersion() {
+            return this.dataVersion
         },
 
         // 清除缓存
@@ -38,6 +53,7 @@ export const useModelStore = defineStore('model', {
             this.providers = []
             this.capabilities = []
             this.lastUpdateTime = null
+            this.dataVersion = 0
         }
     }
 })

@@ -694,24 +694,21 @@ public class RagQueryService {
     }
 
     private String answerSystemPrompt() {
-        String prompt = String.format(
-                "你是一个专业的知识库助手。请根据以下文档内容回答用户的问题。\n\n" +
-                        "【回答规则】\n" +
-                        "1. 优先使用文档中的信息，不要编造\n" +
-                        "2. 如果文档中有具体步骤，请列出步骤\n" +
-                        "3. 如果文档中有配置参数，请说明参数含义\n" +
-                        "4. 如果文档信息不足以回答问题，请明确说明\n");
-        return prompt;
+        return "你是一个专业的知识库助手。请根据以下文档内容回答用户的问题。\n\n" +
+                "【回答规则】\n" +
+                "1. 优先使用文档中的信息，不要编造\n" +
+                "2. 如果文档中有具体步骤，请列出步骤\n" +
+                "3. 如果文档中有配置参数，请说明参数含义\n" +
+                "4. 如果文档信息不足以回答问题，请明确说明\n";
     }
 
     private String answerUserPrompt(String question, String context, String sources) {
-        String prompt = String.format(
+        return String.format(
                 "【相关文档内容】\n%s\n\n" +
                         "【用户问题】\n%s\n\n" +
                         "【引用来源】\n%s\n\n" +
                         "请用中文回答。",
                 context, question, sources);
-        return prompt;
     }
 
     /**

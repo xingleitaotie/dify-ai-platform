@@ -211,9 +211,7 @@ import {
   Promotion, Close, Cpu, DArrowLeft, CopyDocument,
   Document, Setting, Grid
 } from '@element-plus/icons-vue'
-import { chatApi, systemModelApi } from '@/api/chat'
-import { promptApi } from '@/api/prompt'
-import { llmApi } from '@/api/index'
+import { chatApi, llmApi, promptApi, systemModelApi} from '@/api'
 import MarkdownRenderer from '@/views/components/MarkdownRenderer.vue'
 
 // ==================== 状态变量 ====================

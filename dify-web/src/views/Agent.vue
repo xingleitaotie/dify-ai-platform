@@ -471,10 +471,7 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Cpu, Document, Timer, Delete, MagicStick, CopyDocument, Select, Refresh, Edit, Warning } from '@element-plus/icons-vue'
-import { agentApi } from '@/api/agent'
-import { ragApi } from '@/api/rag'
-import { promptApi } from '@/api/prompt'
-import { systemModelApi } from '@/api/chat'
+import {ragApi, agentApi, promptApi,systemModelApi } from '@/api'
 
 // ==================== 系统模型配置 ====================
 const systemChatModelInfo = ref(null)

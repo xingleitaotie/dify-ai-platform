@@ -14,6 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 统一对话服务 - 自动路由到系统配置的模型
@@ -66,6 +67,20 @@ public class UnifiedChatService {
         ChatClient client = clientFactory.createChatClient(provider, modelConfig);
         return client.chat(messages);
     }
+
+    /**
+     * 支持工具调用的对话
+     */
+    public String chatWithTools(List<ChatMessage> messages, List<Map<String, Object>> tools, String toolChoice) {
+        ModelConfigEntity modelConfig = getSystemChatModel();
+        ProviderEntity provider = modelConfig.getProvider();
+
+        ChatClient client = clientFactory.createChatClient(provider, modelConfig);
+
+        return client.chatWithTools(messages, tools, toolChoice);
+
+    }
+
 
     /**
      * 流式对话

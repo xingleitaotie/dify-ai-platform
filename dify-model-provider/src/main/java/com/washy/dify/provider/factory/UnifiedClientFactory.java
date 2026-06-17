@@ -65,12 +65,12 @@ public class UnifiedClientFactory {
      * 创建Chat客户端
      */
     public ChatClient createChatClient(ProviderEntity provider, ModelConfigEntity modelConfig) {
-        String schema = modelConfig.getModelSchema() != null ? modelConfig.getModelSchema() : "openai";
-        String providerKey = provider.getProviderKey();
+        String modelName = modelConfig.getModelName();
+        String providerKey = provider.getProviderKey() != null ? provider.getProviderKey() : "dashscope";
         
-        log.info("创建Chat客户端: provider={}, schema={}, model={}", providerKey, schema, modelConfig.getModelKey());
+        log.info("创建Chat客户端: provider={}, modelName={}, model={}", providerKey, modelName, modelConfig.getModelKey());
         
-        switch (schema.toLowerCase()) {
+        switch (providerKey.toLowerCase()) {
             case "modelscope":
                 return new ModelScopeChatClient(provider, modelConfig);
             case "dashscope":

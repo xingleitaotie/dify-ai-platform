@@ -202,6 +202,58 @@ public class ModelScopeChatClient implements ChatClient {
         }
     }
 
+    @Override
+    public String chatWithTools(List<ChatMessage> messages, List<Map<String, Object>> tools, String toolChoice) {
+        try {
+            // 1. 构建请求头
+            HttpHeaders headers = buildHeaders();
+
+            // 2. 转换消息格式
+            List<Map<String, String>> apiMessages = convertToApiMessages(messages);
+
+            // 3. 构建请求体（OpenAI 标准格式）
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", modelConfig.getModelKey());
+            requestBody.put("messages", apiMessages);
+
+            // 4. 如果有工具，添加 tools 参数
+            if (tools != null && !tools.isEmpty()) {
+                requestBody.put("tools", tools);
+                requestBody.put("tool_choice", toolChoice != null ? toolChoice : "auto");
+                log.info("ModelScope 使用工具调用模式，tools: {}", tools.size());
+            }
+
+            // 6. 发送请求（ModelScope 通常使用 OpenAI 兼容接口）
+            String url = provider.getBaseUrl() + "/v1/chat/completions";
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+            log.debug("ModelScope API 请求 URL: {}", url);
+            log.debug("ModelScope API 请求体: {}", JSON.toJSONString(requestBody));
+
+            // 7. 接收响应
+            JSONObject response = restTemplate.postForObject(url, entity, JSONObject.class);
+
+            // 8. 解析响应（OpenAI 格式）
+            return parseModelScopeResponse(response);
+
+        } catch (Exception e) {
+            log.error("ModelScope 调用失败", e);
+            throw new ModelProviderException("ModelScope 模型调用失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 解析 ModelScope 响应（OpenAI 标准格式）
+     */
+    private String parseModelScopeResponse(JSONObject response) {
+        if (response == null) {
+            throw new ModelProviderException("API返回结果为空");
+        }
+
+        // ModelScope 使用 OpenAI 标准格式，直接返回原始 JSON（包含 tool_calls）
+        return response.toJSONString();
+    }
+
     // ==================== 私有辅助方法 ====================
 
     /**

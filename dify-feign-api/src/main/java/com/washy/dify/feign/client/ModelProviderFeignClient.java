@@ -1,6 +1,7 @@
 // ModelProviderFeignClient.java - 在 dify-llm-service 中添加
 package com.washy.dify.feign.client;
 
+import com.washy.dify.common.entity.function.FunctionChatRequest;
 import com.washy.dify.common.result.Result;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,9 +19,9 @@ public interface ModelProviderFeignClient {
     Result<String> unifiedSyncChat(@RequestBody Map<String, Object> request);
 
     /**
-     * 统一流式对话 - 自动使用系统配置的模型
+     * 函数调用（支持 OpenAI 标准格式）
      */
-    @PostMapping(value = "/api/provider/unified/chat/stream", consumes = "application/json")
-    String unifiedStreamChat(@RequestBody Map<String, Object> request);
+    @PostMapping(value = "/api/provider/unified/chat/function")
+    Result<String> functionChat(@RequestBody FunctionChatRequest request);
 
 }

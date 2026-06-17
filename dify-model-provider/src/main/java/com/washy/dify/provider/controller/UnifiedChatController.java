@@ -1,5 +1,6 @@
 package com.washy.dify.provider.controller;
 
+import com.washy.dify.common.entity.function.FunctionChatRequest;
 import com.washy.dify.common.entity.llm.ChatMessage;
 import com.washy.dify.common.result.Result;
 import com.washy.dify.provider.service.UnifiedChatService;
@@ -8,7 +9,10 @@ import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
@@ -34,6 +38,22 @@ public class UnifiedChatController {
     public Result<String> syncChat(@RequestBody Map<String, Object> request) {
         List<ChatMessage> messages = (List<ChatMessage>) request.get("messages");
         String result = unifiedChatService.chat(messages);
+        return Result.success(result);
+    }
+
+    /**
+     * 函数调用（支持 OpenAI 标准格式）
+     */
+    @PostMapping("/function")
+    @ApiOperation("函数调用对话（支持 tools 参数）")
+    public Result<String> functionChat(@RequestBody FunctionChatRequest request) {
+        // 提取参数
+        List<ChatMessage> messages = request.getMessages();
+        List<Map<String, Object>> tools = request.getTools();
+        String toolChoice = request.getToolChoice();
+
+        // 调用支持工具的服务
+        String result = unifiedChatService.chatWithTools(messages, tools, toolChoice);
         return Result.success(result);
     }
 

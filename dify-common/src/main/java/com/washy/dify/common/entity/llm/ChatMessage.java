@@ -8,6 +8,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
 /**
  * LLM 对话消息实体
@@ -48,6 +50,9 @@ public class ChatMessage implements Serializable {
     @JsonProperty("function_call")
     private FunctionCall functionCall;
 
+    private List<Map<String, Object>> toolCalls;  // 新增
+    private String toolCallId;  // 新增
+
     // 便捷构造方法
     public static ChatMessage system(String content) {
         return ChatMessage.builder()
@@ -73,12 +78,20 @@ public class ChatMessage implements Serializable {
                 .build();
     }
 
-    public static ChatMessage tool(String content) {
-        return ChatMessage.builder()
-                .role("tool")
-                .content(content)
-                .timestamp(System.currentTimeMillis())
-                .build();
+    public static ChatMessage assistantWithToolCalls(List<Map<String, Object>> toolCalls) {
+        ChatMessage msg = new ChatMessage();
+        msg.setRole("assistant");
+        msg.setContent(null);
+        msg.setToolCalls(toolCalls);
+        return msg;
+    }
+
+    public static ChatMessage tool(String toolCallId, String content) {
+        ChatMessage msg = new ChatMessage();
+        msg.setRole("tool");
+        msg.setToolCallId(toolCallId);
+        msg.setContent(content);
+        return msg;
     }
 
     /**

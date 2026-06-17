@@ -99,10 +99,10 @@
 </template>
 
 <script setup>
-import {ref, reactive, onMounted} from 'vue'
-import {ElMessage} from 'element-plus'
-import {DataAnalysis} from '@element-plus/icons-vue'
-import {functionApi} from '@/api/function'
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { DataAnalysis } from '@element-plus/icons-vue'
+import { functionApi } from '@/api'
 import PromptTemplate from './components/PromptTemplate.vue'
 import SystemModelSettings from "@/views/components/SystemModelSettings.vue";
 import ProviderSettings from "@/views/components/ProviderSettings.vue";

@@ -1,0 +1,295 @@
+.node-config-panel {
+    padding: 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #0a0e27;
+    overflow-y: auto;
+}
+
+/* 滚动条样式 */
+.node-config-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.node-config-panel::-webkit-scrollbar-track {
+    background: #0f1228;
+    border-radius: 3px;
+}
+
+.node-config-panel::-webkit-scrollbar-thumb {
+    background: #2a2f4a;
+    border-radius: 3px;
+}
+
+/* 面板底部按钮 */
+.panel-actions {
+    margin-top: auto;
+    padding-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid #2a2f4a;
+    margin-top: 20px;
+}
+
+.panel-actions .el-button--default {
+    background: #2a2f4a !important;
+    border: 1px solid #3a3f5a !important;
+    color: #cbd5e6 !important;
+}
+
+.panel-actions .el-button--default:hover {
+    background: #3a3f5a !important;
+    border-color: #667eea !important;
+    color: #ffffff !important;
+}
+
+.panel-actions .el-button--primary {
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+    border: none !important;
+}
+
+/* 表单样式 */
+:deep(.el-form-item__label) {
+    color: #cbd5e6 !important;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+:deep(.el-input__wrapper) {
+    background: #0f1228 !important;
+    border: 1px solid #2a2f4a !important;
+    border-radius: 10px;
+    box-shadow: none !important;
+}
+
+:deep(.el-input__wrapper:hover) {
+    border-color: #667eea !important;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
+}
+
+:deep(.el-input__inner) {
+    color: #ffffff !important;
+}
+
+:deep(.el-input__inner::placeholder) {
+    color: #64748b !important;
+}
+
+:deep(.el-textarea__inner) {
+    background: #0f1228 !important;
+    border: 1px solid #2a2f4a !important;
+    border-radius: 10px;
+    color: #ffffff !important;
+}
+
+:deep(.el-textarea__inner:focus) {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
+}
+
+:deep(.el-select .el-input__wrapper) {
+    background: #0f1228 !important;
+}
+
+:deep(.el-select-dropdown) {
+    background: #1a1f3a !important;
+    border: 1px solid #2a2f4a !important;
+    border-radius: 12px;
+}
+
+:deep(.el-select-dropdown__item) {
+    color: #cbd5e6 !important;
+}
+
+:deep(.el-select-dropdown__item:hover) {
+    background: #2a2f4a !important;
+    color: #ffffff !important;
+}
+
+:deep(.el-divider) {
+    background-color: #2a2f4a !important;
+    margin: 20px 0;
+}
+
+:deep(.el-divider__text) {
+    background-color: #0a0e27;
+    color: #a78bfa;
+    font-weight: 500;
+}
+
+:deep(.el-descriptions) {
+    --el-descriptions-table-bg: transparent !important;
+}
+
+:deep(.el-descriptions__label) {
+    background: #0f1228 !important;
+    color: #94a3b8 !important;
+    border-color: #2a2f4a !important;
+}
+
+:deep(.el-descriptions__content) {
+    background: #1a1f3a !important;
+    color: #cbd5e6 !important;
+    border-color: #2a2f4a !important;
+}
+
+:deep(.el-slider__runway) {
+    background-color: #2a2f4a;
+}
+
+:deep(.el-slider__bar) {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+:deep(.el-slider__button) {
+    border-color: #667eea;
+}
+
+:deep(.el-tag) {
+    background: rgba(102, 126, 234, 0.15) !important;
+    border: 1px solid rgba(102, 126, 234, 0.3) !important;
+    color: #a78bfa !important;
+}
+
+:deep(.el-button--primary.is-plain) {
+    background: rgba(102, 126, 234, 0.15) !important;
+    border: 1px solid rgba(102, 126, 234, 0.3) !important;
+    color: #a78bfa !important;
+}
+
+:deep(.el-button--default) {
+    background: #1a1f3a !important;
+    border: 1px solid #2a2f4a !important;
+    color: #cbd5e6 !important;
+}
+
+:deep(.el-button--default:hover) {
+    background: #2a2f4a !important;
+    border-color: #667eea !important;
+    color: #ffffff !important;
+}
+
+/* 提示文字 */
+.form-tip {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+.slider-value {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #a78bfa;
+    font-weight: 500;
+}
+
+/* 变量编辑器 */
+.input-vars-editor,
+.output-vars-editor,
+.output-fields-editor {
+    width: 100%;
+}
+
+.input-var-row,
+.output-var-row,
+.field-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+    flex-wrap: wrap;
+    background: #0f1228;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #2a2f4a;
+}
+
+/* 提示词编辑器 */
+.prompt-editor {
+    width: 100%;
+}
+
+.prompt-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.variable-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* 测试结果区域 */
+.test-result {
+    margin-top: 12px;
+}
+
+.test-result-content {
+    margin-top: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.result-documents {
+    border: 1px solid #2a2f4a;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.result-document {
+    padding: 12px;
+    border-bottom: 1px solid #2a2f4a;
+}
+
+.result-document:last-child {
+    border-bottom: none;
+}
+
+.doc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.doc-index {
+    font-weight: 600;
+    color: #a78bfa;
+    font-size: 13px;
+}
+
+.doc-content {
+    font-size: 12px;
+    color: #cbd5e6;
+    line-height: 1.5;
+}
+
+/* 响应式 */
+@media screen and (max-width: 768px) {
+    .node-config-panel {
+        padding: 16px;
+    }
+
+    .input-var-row,
+    .output-var-row,
+    .field-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .prompt-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

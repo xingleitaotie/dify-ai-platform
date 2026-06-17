@@ -321,16 +321,25 @@
     <el-dialog v-model="showCreateDialog" title="创建知识库" width="550px">
       <el-form :model="newKB" :rules="kbRules" ref="kbFormRef" label-width="100px">
         <el-form-item label="名称" prop="name">
-          <el-input v-model="newKB.name" placeholder="请输入知识库名称" />
+          <el-input
+              v-model="newKB.name"
+              placeholder="请输入知识库名称（仅支持英文、数字、中划线、下划线）"
+              @input="filterKbName"
+          />
+          <div class="form-tip">只允许英文字母、数字、中划线(-)、下划线(_)</div>
         </el-form-item>
         <el-form-item label="描述" prop="description">
           <el-input v-model="newKB.description" type="textarea" :rows="3" placeholder="请输入描述（可选）" />
         </el-form-item>
-        <el-form-item label="Embedding模型">
+        <!-- 修改创建知识库对话框中的 Embedding 模型部分 -->
+        <el-form-item label="Embedding模型" prop="embeddingModel">
           <el-select v-model="newKB.embeddingModel" placeholder="请选择Embedding模型" style="width: 100%">
-            <el-option label="nomic-embed-text" value="nomic-embed-text" />
-            <el-option label="text-embedding-ada-002" value="text-embedding-ada-002" />
-            <el-option label="bge-large-zh" value="bge-large-zh" />
+            <el-option
+                v-for="model in embeddingModelList"
+                :key="model.value"
+                :label="model.label"
+                :value="model.value"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="分块大小">
@@ -357,7 +366,86 @@ import {
   MoreFilled, Grid, CopyDocument, ArrowDown, ArrowRight
 } from '@element-plus/icons-vue'
 import { ragApi } from '@/api/rag'
-import { systemModelApi } from '@/api/modelConfig'
+import { systemModelApi, providerApi} from '@/api/modelConfig'
+
+const filterKbName = () => {
+  // 只允许英文、数字、中划线、下划线
+  newKB.value.name = newKB.value.name.replace(/[^a-zA-Z0-9_-]/g, '')
+}
+
+// ==================== Embedding 模型相关 ====================
+const embeddingModelList = ref([])
+const embeddingModelLoading = ref(false)
+
+// 获取系统配置的 Embedding 模型列表
+const loadEmbeddingModels = async () => {
+  embeddingModelLoading.value = true
+  try {
+    // 获取系统能力配置中的 embedding 模型
+    const capRes = await systemModelApi.getCapabilities()
+    let systemEmbeddingModelId = null
+    let systemEmbeddingModel = null
+
+    if (capRes.code === 200 && capRes.data) {
+      const embeddingCapability = capRes.data.embedding
+      if (embeddingCapability && embeddingCapability.modelConfigId) {
+        systemEmbeddingModelId = embeddingCapability.modelConfigId
+      }
+    }
+
+    // 获取所有可用的 embedding 模型（从供应商中获取）
+    const providerRes = await providerApi.getEnabledProviders()
+    if (providerRes.code === 200 && providerRes.data) {
+      const models = []
+      for (const provider of providerRes.data) {
+        try {
+          const detailRes = await providerApi.getProviderDetail(provider.id)
+          if (detailRes.code === 200 && detailRes.data && detailRes.data.models) {
+            const embeddingModels = detailRes.data.models.filter(
+                model => model.capabilityType === 'embedding' && model.status === 1
+            )
+            embeddingModels.forEach(model => {
+              const modelItem = {
+                value: model.modelKey,
+                label: `${model.modelName} (${provider.providerName})`,
+                providerKey: provider.providerKey,
+                modelKey: model.modelKey,
+                modelId: model.id
+              }
+              models.push(modelItem)
+
+              // 如果是系统配置的模型，设为默认选中
+              if (systemEmbeddingModelId && model.id === systemEmbeddingModelId) {
+                systemEmbeddingModel = modelItem
+              }
+            })
+          }
+        } catch (e) {
+          console.warn(`获取供应商 ${provider.providerName} 的模型失败:`, e)
+        }
+      }
+      embeddingModelList.value = models
+
+      // 设置默认选中的模型
+      if (systemEmbeddingModel) {
+        newKB.value.embeddingModel = systemEmbeddingModel.value
+      } else if (models.length > 0) {
+        newKB.value.embeddingModel = models[0].value
+      }
+    }
+  } catch (error) {
+    console.error('加载Embedding模型列表失败:', error)
+    // 降级：使用默认选项
+    embeddingModelList.value = [
+      { value: 'nomic-embed-text', label: 'nomic-embed-text (Ollama)' },
+      { value: 'text-embedding-ada-002', label: 'text-embedding-ada-002 (OpenAI)' },
+      { value: 'bge-large-zh', label: 'bge-large-zh (ModelScope)' }
+    ]
+  } finally {
+    embeddingModelLoading.value = false
+  }
+}
+
 
 // ==================== 模型相关 - 使用系统配置 ====================
 const currentChatModelId = ref(null)
@@ -499,13 +587,20 @@ let progressInterval = null
 const newKB = ref({
   name: '',
   description: '',
-  embeddingModel: 'nomic-embed-text',
+  embeddingModel: '',  // 改为空，由 loadEmbeddingModels 设置默认值
   chunkSize: 500,
   chunkOverlap: 50
 })
 
 const kbRules = {
-  name: [{ required: true, message: '请输入知识库名称', trigger: 'blur' }]
+  name: [
+    { required: true, message: '请输入知识库名称', trigger: 'blur' },
+    {
+      pattern: /^[a-zA-Z0-9_-]+$/,
+      message: '知识库名称只能包含英文字母、数字、中划线和下划线',
+      trigger: 'blur'
+    }
+  ]
 }
 
 // ==================== 计算属性 ====================
@@ -533,7 +628,7 @@ const loadKnowledgeBases = async () => {
     const res = await ragApi.getKnowledgeBases()
     if (res.code === 200 && res.data) {
       // 过滤掉系统模板库
-      knowledgeBases.value = res.data.filter(kb => kb.name !== 'prompt_templates')
+      knowledgeBases.value = res.data
     } else {
       knowledgeBases.value = []
     }
@@ -875,7 +970,8 @@ const testSearch = async () => {
 
 // ==================== 生命周期 ====================
 onMounted(async () => {
-  await loadSystemChatModel()  // 先加载系统模型
+  await loadSystemChatModel()  // 加载大语言模型
+  await loadEmbeddingModels()  // 加载Embedding模型列表
   await loadKnowledgeBases()
   if (knowledgeBases.value.length > 0) {
     selectKnowledgeBase(knowledgeBases.value[0])
@@ -1751,5 +1847,16 @@ const uploadToKb = (kb) => {
 .model-tip {
   font-size: 12px;
   color: #64748b;
+}
+
+:deep(.el-form-item__label) {
+  white-space: nowrap;
+}
+
+/* 响应式时允许换行 */
+@media screen and (max-width: 480px) {
+  :deep(.el-form-item__label) {
+    white-space: normal;
+  }
 }
 </style>
