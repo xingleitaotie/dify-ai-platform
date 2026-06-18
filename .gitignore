@@ -37,6 +37,7 @@ dify-web/npm-debug.log*
 dify-web/yarn-debug.log*
 dify-web/yarn-error.log*
 dify-web/package-lock.json
+data/
 
 # Docker
 docker/data/
