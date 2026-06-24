@@ -243,6 +243,27 @@ services:
       - dify-eureka-server
 
   # ==========================
+  # Model 服务
+  # ==========================
+  dify-model-provider:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+      args:
+        MODULE_NAME: dify-model-provider
+    container_name: dify-model-provider
+    ports:
+      - "8089:8089"
+    networks:
+      - dify-ai-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: always
+    depends_on:
+      - mysql
+      - dify-eureka-server
+
+  # ==========================
   # User 用户服务
   # ==========================
   dify-user-service:

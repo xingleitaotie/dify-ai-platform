@@ -4,7 +4,7 @@
 
     <el-form-item label="输入变量">
       <div class="input-vars-editor">
-        <div v-for="(inputVar, index) in localConfig.inputVariables" :key="index" class="input-var-row">
+        <div v-for="(inputVar, index) in inputVariables" :key="index" class="input-var-row">
           <el-input v-model="inputVar.name" placeholder="变量名" size="small" style="width: 120px" />
           <el-select v-model="inputVar.type" placeholder="类型" size="small" style="width: 100px">
             <el-option label="字符串" value="string" />
@@ -25,28 +25,37 @@
 </template>
 
 <script setup>
-import { reactive, watch } from 'vue'
+import { computed } from 'vue'
 import { Delete, Plus } from '@element-plus/icons-vue'
 
 const props = defineProps({
   config: { type: Object, required: true },
   node: { type: Object, required: true }
 })
-const emit = defineEmits(['update'])
 
-const localConfig = reactive({
-  inputVariables: props.config?.inputVariables || []
+// 双向绑定 inputVariables，直接操作父组件草稿
+const inputVariables = computed({
+  get() {
+    if (!props.config.inputVariables) {
+      props.config.inputVariables = []
+    }
+    return props.config.inputVariables
+  },
+  set(val) {
+    props.config.inputVariables = val
+  }
 })
 
 const addInputVar = () => {
-  localConfig.inputVariables.push({ name: '', type: 'string', defaultValue: '' })
+  inputVariables.value = [
+    ...inputVariables.value,
+    { name: '', type: 'string', defaultValue: '' }
+  ]
 }
 
 const removeInputVar = (index) => {
-  localConfig.inputVariables.splice(index, 1)
+  const newVars = [...inputVariables.value]
+  newVars.splice(index, 1)
+  inputVariables.value = newVars
 }
-
-watch(localConfig, (newVal) => {
-  emit('update', newVal)
-}, { deep: true })
 </script>

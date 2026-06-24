@@ -2,6 +2,7 @@ package com.washy.dify.provider.controller;
 
 import com.washy.dify.common.entity.function.FunctionChatRequest;
 import com.washy.dify.common.entity.llm.ChatMessage;
+import com.washy.dify.common.entity.llm.ChatRequestDTO;
 import com.washy.dify.common.result.Result;
 import com.washy.dify.provider.service.UnifiedChatService;
 import io.swagger.annotations.Api;
@@ -38,6 +39,16 @@ public class UnifiedChatController {
     public Result<String> syncChat(@RequestBody Map<String, Object> request) {
         List<ChatMessage> messages = (List<ChatMessage>) request.get("messages");
         String result = unifiedChatService.chat(messages);
+        return Result.success(result);
+    }
+
+    /**
+     * 传入模型配置参数查询
+     */
+    @PostMapping("/condition")
+    @ApiOperation("传入模型配置参数查询（未传入使用系统配置的模型）")
+    public Result<String> conditionChat(@RequestBody ChatRequestDTO request) {
+        String result = unifiedChatService.conditionChat(request);
         return Result.success(result);
     }
 

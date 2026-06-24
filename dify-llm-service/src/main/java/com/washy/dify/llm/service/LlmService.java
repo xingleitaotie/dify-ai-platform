@@ -340,6 +340,20 @@ public class LlmService {
     }
 
     /**
+     * 根据条件查询
+     */
+    public String conditionChat(ChatRequestDTO request) {
+
+        Result<String> result = modelProviderFeignClient.conditionChat(request);
+        if (result.getCode() != 200) {
+            log.error("模型调用失败: {}", result.getMsg());
+            return "模型调用失败：" + result.getMsg();
+        }
+
+        return result.getData();
+    }
+
+    /**
      * 判断消息列表中是否已包含系统提示词
      */
     private boolean hasSystemPrompt(List<ChatMessage> messages) {

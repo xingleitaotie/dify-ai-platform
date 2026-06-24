@@ -4,7 +4,7 @@
 
     <el-form-item label="输出变量">
       <div class="output-vars-editor">
-        <div v-for="(outputVar, index) in localConfig.outputVariables" :key="index" class="output-var-row">
+        <div v-for="(outputVar, index) in outputVariables" :key="index" class="output-var-row">
           <el-input
               v-model="outputVar.name"
               placeholder="变量名"
@@ -65,7 +65,7 @@
 </template>
 
 <script setup>
-import { reactive, watch, inject, ref, computed } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Delete, Plus, ArrowDown } from '@element-plus/icons-vue'
 
@@ -75,25 +75,34 @@ const props = defineProps({
   nodeOutputVars: { type: Array, default: () => [] }
 })
 
-const emit = defineEmits(['update'])
-
 const inputVarList = inject('inputVarList', ref([
   { name: 'query', description: '用户输入的问题' }
 ]))
 
-// 直接使用父组件传递的数据（已过滤前置节点且排除自身）
 const nodeOutputVars = computed(() => props.nodeOutputVars || [])
 
-const localConfig = reactive({
-  outputVariables: props.config?.outputVariables || []
+// ✅ 直接操作父组件传递的 config.outputVariables（它是响应式草稿）
+const outputVariables = computed({
+  get() {
+    if (!props.config.outputVariables) {
+      props.config.outputVariables = []
+    }
+    return props.config.outputVariables
+  },
+  set(val) {
+    props.config.outputVariables = val
+  }
 })
 
 const addOutputVar = () => {
-  localConfig.outputVariables.push({ name: '', source: '' })
+  // 通过 computed setter 替换整个数组，触发响应式更新
+  outputVariables.value = [...outputVariables.value, { name: '', source: '' }]
 }
 
 const removeOutputVar = (index) => {
-  localConfig.outputVariables.splice(index, 1)
+  const newVars = [...outputVariables.value]
+  newVars.splice(index, 1)
+  outputVariables.value = newVars
 }
 
 const setOutputVarSource = (outputVar, source) => {
@@ -104,10 +113,6 @@ const setOutputVarSource = (outputVar, source) => {
   }
   ElMessage.success(`已设置来源: ${source}`)
 }
-
-watch(localConfig, (newVal) => {
-  emit('update', newVal)
-}, { deep: true })
 </script>
 
 <style scoped>

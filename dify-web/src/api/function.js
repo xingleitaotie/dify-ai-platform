@@ -7,5 +7,7 @@ export const functionApi = {
 
     callFunction(data) {
         return request.post('/function/call', data)
-    }
+    },
+
+    getFunctionInfo: (name) => request.get(`/function/info/${name}`)
 }

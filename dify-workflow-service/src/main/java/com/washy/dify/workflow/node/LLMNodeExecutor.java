@@ -51,6 +51,10 @@ public class LLMNodeExecutor implements NodeExecutor {
         Long modelConfigId = modelConfigIdInt.longValue();
 
         Double temperature = resolver.resolveDouble(config.get("temperature"), context, 0.7);
+        Integer maxTokens = resolver.resolveInteger(config.get("maxTokens"), context, 4096);
+        Map<String,Object> params = new HashMap<>();
+        params.put("temperature",temperature);
+        params.put("maxTokens",maxTokens);
 
         // ========== 3. 调用 LLM ==========
         ChatRequestDTO dto = new ChatRequestDTO();
@@ -58,12 +62,10 @@ public class LLMNodeExecutor implements NodeExecutor {
         messages.add(ChatMessage.system(systemPrompt));
         messages.add(ChatMessage.user(userPrompt));
         dto.setMessages(messages);
-        dto.setParams(Collections.singletonMap("temperature", temperature));
+        dto.setParams(params);
         dto.setConfigId(modelConfigId);
 
-        Result<String> result = modelConfigId != 0
-                ? llmFeignClient.chatWithConfig(dto)
-                : llmFeignClient.chat(dto);
+        Result<String> result = llmFeignClient.chatWithConfig(dto);
 
         if (result.getCode() != 200) {
             throw new RuntimeException("LLM 调用失败：" + result.getMsg());

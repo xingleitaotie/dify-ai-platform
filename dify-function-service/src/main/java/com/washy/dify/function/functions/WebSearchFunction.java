@@ -4,6 +4,9 @@ import com.washy.dify.common.annotation.AiFunction;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -113,8 +116,24 @@ public class WebSearchFunction {
                     .toUriString();
 
             log.debug("搜索 URL: {}", url);
-            
-            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
+
+            // 构建完整浏览器请求头
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            headers.set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
+            headers.set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+            headers.set("Accept-Encoding", "gzip, deflate, br");
+            headers.set("Connection", "keep-alive");
+            headers.set("Upgrade-Insecure-Requests", "1");
+            headers.set("Sec-Fetch-Dest", "document");
+            headers.set("Sec-Fetch-Mode", "navigate");
+            headers.set("Sec-Fetch-Site", "none");
+            headers.set("Sec-Fetch-User", "?1");
+            headers.set("Cache-Control", "max-age=0");
+            headers.set("Referer", searxngUrl);  // 关键：防止防盗链
+
+            HttpEntity<?> entity = new HttpEntity<>(headers);
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
 
             if (response.getBody() != null && response.getBody().containsKey("results")) {
                 return (List<Map<String, Object>>) response.getBody().get("results");

@@ -121,6 +121,7 @@
     <el-drawer v-model="nodeConfigDrawer" :title="'配置节点: ' + (currentNode ? currentNode.name : '')" size="40%">
       <NodeConfigPanel
           v-if="currentNode"
+          :key="currentNode.id"
           :node="currentNode"
           :nodes="nodes"
           :edges="edges"
@@ -720,19 +721,24 @@ const onNodeClick = ({ node }) => {
   nodeConfigDrawer.value = true
 }
 
-const updateNodeConfig = (config) => {
+const updateNodeConfig = (payload) => {
   if (!currentNode.value) return
   const idx = nodes.value.findIndex(n => n.id === currentNode.value.id)
-  if (idx !== -1) {
-    const node = nodes.value[idx]
-    node.data = {
-      ...node.data,
-      config: { ...node.data.config, ...config },
-    }
-    if (config.name) node.data.name = config.name
-    // 同步 currentNode 以供配置面板和变量计算
-    currentNode.value.config = node.data.config
-    currentNode.value.name = node.data.name
+  if (idx === -1) return
+
+  const node = nodes.value[idx]
+  // ✅ 直接替换整个 config 对象，彻底切断引用
+  node.data = {
+    ...node.data,
+    config: payload,  // payload 已经是被深拷贝后的纯净对象
+    name: payload.name || node.data.name
+  }
+  // 更新当前编辑引用
+  currentNode.value = {
+    id: node.id,
+    type: node.type,
+    name: node.data.name,
+    config: node.data.config
   }
 }
 

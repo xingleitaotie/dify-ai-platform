@@ -9,7 +9,6 @@
           :is="configComponent"
           v-if="configComponent"
           v-bind="componentProps"
-          @update="handleUpdate"
       />
     </el-form>
 
@@ -21,7 +20,8 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, watch, inject } from 'vue'
+import { ref, computed, reactive, onMounted, inject } from 'vue'
+import { cloneDeep } from 'lodash-es'
 import { ElMessage } from 'element-plus'
 import BaseConfig from './BaseConfig.vue'
 import LLMConfig from './LLMConfig.vue'
@@ -109,12 +109,10 @@ const preNodeOutputVars = computed(() => {
 })
 
 // 本地配置
-const localConfig = reactive({ ...props.node.config })
+const localConfig = reactive(cloneDeep(props.node.config))
 
-const nodeName = computed({
-  get: () => props.node.name,
-  set: (val) => emit('update', { name: val })
-})
+// 本地节点名称
+const nodeName = ref(props.node.name)
 
 // 动态表单验证规则
 const formRules = computed(() => {
@@ -151,42 +149,44 @@ const formRules = computed(() => {
   return rules
 })
 
-/// 传递给子组件的 props（将 nodeOutputVars 替换为前置节点列表）
+const configFormRef = ref(null)
+
+// 传递深拷贝后的本地副本给子组件
 const componentProps = computed(() => ({
   config: localConfig,
   node: props.node,
   inputVarList,
-  nodeOutputVars: preNodeOutputVars.value,   // 关键替换
+  nodeOutputVars: preNodeOutputVars.value,
   formRef: configFormRef
 }))
 
+onMounted(() => {
+  Object.assign(localConfig, props.node.config)
+  // 如果 props.node.config 中没有 inputs，保留已有 inputs
+  if (localConfig.inputs === undefined) {
+    localConfig.inputs = []
+  }
+})
 
-const configFormRef = ref(null)
-
-const handleUpdate = (updates) => {
-  Object.assign(localConfig, updates)
-}
-
+// 保存：将本地草稿提交到父组件
 const saveConfig = async () => {
   if (configFormRef.value) {
     try {
       await configFormRef.value.validate()
-    } catch (e) {
+    } catch {
       ElMessage.warning('请完善表单必填项')
       return
     }
   }
-  emit('update', localConfig)
+  // ✅ 将深拷贝后的纯净数据提交，避免外部再次引用
+  emit('update', {
+    ...cloneDeep(localConfig),
+    name: nodeName.value
+  })
   emit('close')
   ElMessage.success('配置保存成功')
 }
 
-// 监听父组件配置变化
-watch(() => props.node.config, (newVal) => {
-  if (newVal) {
-    Object.assign(localConfig, newVal)
-  }
-}, { deep: true, immediate: true })
 </script>
 
 <style scoped>

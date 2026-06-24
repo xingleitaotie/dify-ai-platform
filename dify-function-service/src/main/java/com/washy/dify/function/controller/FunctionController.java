@@ -4,6 +4,8 @@ import com.washy.dify.common.entity.function.FunctionCallRequest;
 import com.washy.dify.common.entity.function.FunctionExecuteResult;
 import com.washy.dify.common.entity.function.FunctionInfo;
 import com.washy.dify.common.result.Result;
+import com.washy.dify.common.result.ResultCode;
+import com.washy.dify.function.exception.FunctionException;
 import com.washy.dify.function.service.FunctionCallService;
 import com.washy.dify.function.service.FunctionRegistry;
 import lombok.RequiredArgsConstructor;
@@ -57,5 +59,16 @@ public class FunctionController {
         response.put("tool_choice", "auto");  // auto: 自动选择, none: 不调用, required: 必须调用
 
         return Result.success(response);
+    }
+
+    @GetMapping("/info/{functionName}")
+    public Result<FunctionInfo> getFunctionInfo(@PathVariable String functionName) {
+        try {
+            FunctionInfo info = functionRegistry.getFunctionInfo(functionName);
+            return Result.success(info);
+        } catch (FunctionException e) {
+            log.warn("函数不存在: {}", functionName);
+            return Result.failed(ResultCode.FUNCTION_NOT_FOUND);
+        }
     }
 }

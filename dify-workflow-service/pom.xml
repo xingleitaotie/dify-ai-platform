@@ -13,8 +13,6 @@
     <artifactId>dify-workflow-service</artifactId>
 
     <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -66,6 +64,17 @@
             <artifactId>spring-cloud-starter-loadbalancer</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.graalvm.sdk</groupId>
+            <artifactId>graal-sdk</artifactId>
+            <scope>provided</scope> <!-- 运行时由 GraalVM 环境提供 -->
+        </dependency>
+
+        <dependency>
+            <groupId>org.graalvm.js</groupId>
+            <artifactId>js</artifactId>
+        </dependency>
+
     </dependencies>
 
     <!-- 业务模块必须配置 build 插件 -->
@@ -86,5 +95,40 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- 定义 native profile -->
+    <profiles>
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>0.9.28</version>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals>
+                                    <!-- 绑定到 package 阶段，执行 mvn package 时自动触发 native 构建 -->
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <!-- 在此处可以传递额外的参数给 GraalVM 的 native-image 命令 -->
+                            <buildArgs>
+                                <!-- 例如，开启堆栈异常追踪，便于调试 -->
+                                <buildArg>-H:+ReportExceptionStackTraces</buildArg>
+                                <!-- 如需限制内存使用，可以添加： -->
+                                <!-- <buildArg>-J-Xmx4G</buildArg> -->
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>

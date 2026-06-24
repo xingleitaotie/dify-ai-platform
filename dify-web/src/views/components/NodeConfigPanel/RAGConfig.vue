@@ -5,7 +5,7 @@
     <el-form-item label="查询内容" prop="query">
       <div class="prompt-editor">
         <el-input
-            v-model="localConfig.query"
+            v-model="query"
             type="textarea"
             :rows="4"
             placeholder="请输入查询内容，支持变量，如：{{input.query}}"
@@ -48,7 +48,7 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-          <el-button size="small" @click="localConfig.query = ''" plain>清空</el-button>
+          <el-button size="small" @click="query = ''" plain>清空</el-button>
         </div>
       </div>
     </el-form-item>
@@ -57,7 +57,7 @@
 
     <el-form-item label="知识库">
       <el-select
-          v-model="localConfig.kbName"
+          v-model="kbName"
           placeholder="请选择知识库"
           filterable
           clearable
@@ -74,19 +74,19 @@
     </el-form-item>
 
     <el-form-item label="返回文档数量">
-      <el-slider v-model="localConfig.topK" :min="1" :max="20" :step="1" />
-      <div class="slider-value">返回 {{ localConfig.topK || 5 }} 个相关文档</div>
+      <el-slider v-model="topK" :min="1" :max="20" :step="1" />
+      <div class="slider-value">返回 {{ topK || 5 }} 个相关文档</div>
     </el-form-item>
 
     <el-form-item label="相似度阈值">
-      <el-slider v-model="localConfig.threshold" :min="0" :max="1" :step="0.05" />
-      <div class="slider-value">阈值: {{ (localConfig.threshold || 0) * 100 }}%</div>
+      <el-slider v-model="threshold" :min="0" :max="1" :step="0.05" />
+      <div class="slider-value">阈值: {{ (threshold || 0) * 100 }}%</div>
     </el-form-item>
 
     <el-divider content-position="left">输出配置</el-divider>
 
     <el-form-item label="输出变量名" prop="outputVar">
-      <el-input v-model="localConfig.outputVar" placeholder="例如: rag_documents" />
+      <el-input v-model="outputVar" placeholder="例如: rag_documents" />
       <div class="form-tip">其他节点可通过 <code>{{ outputVarDisplay }}</code> 引用</div>
     </el-form-item>
 
@@ -119,7 +119,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, computed, inject } from 'vue'
+import { ref, computed, inject } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowDown, VideoPlay } from '@element-plus/icons-vue'
 import { ragApi } from '@/api'
@@ -129,8 +129,6 @@ const props = defineProps({
   node: { type: Object, required: true },
   nodeOutputVars: { type: Array, default: () => [] }
 })
-
-const emit = defineEmits(['update'])
 
 // 注入输入变量列表
 const inputVarList = inject('inputVarList', ref([
@@ -143,12 +141,38 @@ const nodeOutputVars = computed(() => {
   return vars.filter(v => v.outputVar && v.nodeId !== props.node.id)
 })
 
-const localConfig = reactive(props.config)
+// ========== 双向 computed，直接操作 props.config ==========
+const query = computed({
+  get: () => props.config.query || '',
+  set: (val) => { props.config.query = val }
+})
+
+const kbName = computed({
+  get: () => props.config.kbName || '',
+  set: (val) => { props.config.kbName = val }
+})
+
+const topK = computed({
+  get: () => props.config.topK ?? 5,
+  set: (val) => { props.config.topK = val }
+})
+
+const threshold = computed({
+  get: () => props.config.threshold ?? 0.7,
+  set: (val) => { props.config.threshold = val }
+})
+
+const outputVar = computed({
+  get: () => props.config.outputVar || 'rag_documents',
+  set: (val) => { props.config.outputVar = val }
+})
+
 const outputVarDisplay = computed(() => {
-  const varName = localConfig.outputVar || 'rag_documents'
+  const varName = outputVar.value
   return `{{var.${varName}}}`
 })
 
+// ========== 知识库列表 ==========
 const knowledgeBaseList = ref([])
 const loadingKbList = ref(false)
 const testing = ref(false)
@@ -169,22 +193,24 @@ const loadKnowledgeBaseList = async () => {
   }
 }
 
+// 插入变量到查询内容
 const insertQueryVariable = (varPath) => {
   const variable = `{{${varPath}}}`
-  localConfig.query = (localConfig.query || '') + variable
+  query.value = query.value + variable
 }
 
+// 测试 RAG 检索
 const testRagNode = async () => {
-  if (!localConfig.query) {
+  if (!query.value) {
     ElMessage.warning('请输入查询内容')
     return
   }
   testing.value = true
   try {
     const res = await ragApi.searchDocument({
-      kb: localConfig.kbName,
-      query: localConfig.query,
-      topK: localConfig.topK || 5
+      kb: kbName.value,
+      query: query.value,
+      topK: topK.value
     })
     if (res.code === 200) {
       const data = res.data
@@ -205,10 +231,6 @@ const testRagNode = async () => {
     testing.value = false
   }
 }
-
-watch(localConfig, (newVal) => {
-  emit('update', newVal)
-}, { deep: true })
 </script>
 
 <style scoped>

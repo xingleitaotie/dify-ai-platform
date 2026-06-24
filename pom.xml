@@ -34,10 +34,10 @@
 
     <!-- 统一版本号管理 -->
     <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java.version>1.8</java.version>
+        <java.version>11</java.version>
         <washy-dify.version>1.0</washy-dify.version>
         <spring-cloud.version>2021.0.9</spring-cloud.version>
         <fastjson.version>2.0.32</fastjson.version>
@@ -66,6 +66,8 @@
         <commons-text.version>1.10.0</commons-text.version>
         <dataformat-yaml.version>2.15.3</dataformat-yaml.version>
         <rhino.version>1.7.14</rhino.version>
+        <native.version>0.9.28</native.version>
+        <graalvm.version>22.3.0</graalvm.version>
     </properties>
 
     <!-- 全局依赖管理（所有子模块自动继承） -->
@@ -350,6 +352,18 @@
                 <version>${rhino.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.graalvm.sdk</groupId>
+                <artifactId>graal-sdk</artifactId>
+                <version>${graalvm.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.graalvm.js</groupId>
+                <artifactId>js</artifactId>
+                <version>${graalvm.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
     <!-- 全局通用依赖 -->
@@ -396,4 +410,17 @@
         </dependency>
 
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.graalvm.buildtools</groupId>
+                    <artifactId>native-maven-plugin</artifactId>
+                    <version>${native.version}</version>
+                </plugin>
+                <!-- 可管理其他公共插件 -->
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

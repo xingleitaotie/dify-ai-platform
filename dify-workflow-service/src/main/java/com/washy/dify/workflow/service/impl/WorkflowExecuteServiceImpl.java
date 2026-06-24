@@ -149,7 +149,7 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
         String[] businessFields;
         switch (nodeType) {
             case "LLM":
-                businessFields = new String[]{"systemPrompt", "userPrompt", "temperature", "modelConfigId",
+                businessFields = new String[]{"systemPrompt", "userPrompt", "temperature", "maxTokens", "modelConfigId",
                         "outputVar", "outputType", "arrayItemType", "outputFields"};
                 break;
             case "RAG":
@@ -165,7 +165,7 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
                 businessFields = new String[]{"expression", "outputVar"};
                 break;
             case "CODE":
-                businessFields = new String[]{"code", "language", "outputVar"};
+                businessFields = new String[]{"code", "language", "outputVar", "inputs"};
                 break;
             case "START":
                 businessFields = new String[]{"inputVariables"};

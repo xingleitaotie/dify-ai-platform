@@ -1,13 +1,13 @@
 <template>
   <div class="function-config">
-    <el-divider content-position="left">基础配置</el-divider>
-
+    <!-- 基础配置 -->
     <el-form-item label="函数名称" prop="functionName">
       <el-select
-          v-model="localConfig.functionName"
+          v-model="functionName"
           placeholder="选择函数"
           filterable
           :loading="functionLoading"
+          @change="onFunctionChange"
           @focus="loadFunctionList"
       >
         <el-option
@@ -19,16 +19,29 @@
       </el-select>
     </el-form-item>
 
-    <el-form-item label="参数配置">
-      <div class="param-editor">
-        <div class="param-toolbar">
-          <el-dropdown @command="insertParamVariable">
-            <el-button size="small" type="primary" plain>
+    <!-- 动态参数表单 -->
+    <el-divider content-position="left">参数配置</el-divider>
+    <div v-if="paramSchema && Object.keys(paramSchema).length">
+      <el-form-item
+          v-for="(paramDef, paramName) in paramSchema"
+          :key="paramName"
+          :label="paramName"
+          :required="isParamRequired(paramName)"
+          class="param-item"
+      >
+        <div class="param-input-wrapper">
+          <el-input
+              v-model="paramValues[paramName]"
+              :placeholder="`请输入 ${paramDef.description || paramName}`"
+              size="small"
+              class="param-input"
+          />
+          <el-dropdown @command="(cmd) => insertParamVariable(paramName, cmd)">
+            <el-button size="small" plain>
               插入变量 <el-icon><ArrowDown /></el-icon>
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
-                <!-- 输入变量分组 -->
                 <el-dropdown-item divided>
                   <strong>📥 输入变量</strong>
                 </el-dropdown-item>
@@ -40,10 +53,8 @@
                   <span class="var-code">{{ '{' }}{{ '{' }}input.{{ input.name }}{{ '}' }}{{ '}' }}</span>
                   <span class="var-desc"> - {{ input.description || input.name }}</span>
                 </el-dropdown-item>
-
-                <!-- 节点输出变量分组 -->
                 <el-dropdown-item divided>
-                  <strong>📤 节点输出变量（{{ nodeOutputVars.length }}）</strong>
+                  <strong>📤 节点输出变量</strong>
                 </el-dropdown-item>
                 <el-dropdown-item
                     v-for="v in nodeOutputVars"
@@ -53,36 +64,28 @@
                   <span class="var-code">{{ '{' }}{{ '{' }}var.{{ v.outputVar }}{{ '}' }}{{ '}' }}</span>
                   <span class="var-desc"> - {{ v.nodeName }}（{{ v.nodeType }}）</span>
                 </el-dropdown-item>
-                <el-dropdown-item v-if="nodeOutputVars.length === 0" disabled>
-                  暂无已配置输出变量的前置节点
-                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-          <el-button size="small" @click="formatParametersJson" plain>格式化JSON</el-button>
-          <el-button size="small" @click="clearParameters" plain>清空</el-button>
         </div>
-        <el-input
-            v-model="parametersJson"
-            type="textarea"
-            :rows="6"
-            placeholder='{"query": "{{input.query}}"}'
-            @change="updateParameters"
-        />
-      </div>
-    </el-form-item>
+        <div v-if="paramDef.description" class="param-hint">{{ paramDef.description }}</div>
+      </el-form-item>
+    </div>
+    <div v-else-if="functionName" class="no-params-hint">
+      该函数无需参数
+    </div>
 
+    <!-- 输出配置（不变） -->
     <el-divider content-position="left">输出配置</el-divider>
-
     <el-form-item label="输出变量名" prop="outputVar">
-      <el-input v-model="localConfig.outputVar" placeholder="例如: function_result" />
+      <el-input v-model="outputVar" placeholder="例如: function_result" />
       <div class="form-tip">其他节点可通过 <code>{{ outputVarDisplay }}</code> 引用</div>
     </el-form-item>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, watch, computed, inject } from 'vue'
+import { ref, computed, inject, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { functionApi } from '@/api'
@@ -92,7 +95,6 @@ const props = defineProps({
   node: { type: Object, required: true },
   nodeOutputVars: { type: Array, default: () => [] }
 })
-const emit = defineEmits(['update'])
 
 const inputVarList = inject('inputVarList', ref([
   { name: 'query', description: '用户输入的问题' }
@@ -103,64 +105,33 @@ const nodeOutputVars = computed(() => {
   return vars.filter(v => v.outputVar && v.nodeId !== props.node.id)
 })
 
-const localConfig = reactive(props.config)
+// ========== 直接操作 props.config（双向 computed） ==========
+const functionName = computed({
+  get: () => props.config.functionName || '',
+  set: (val) => { props.config.functionName = val }
+})
+
+const outputVar = computed({
+  get: () => props.config.outputVar || 'function_result',
+  set: (val) => { props.config.outputVar = val }
+})
+
+const parameters = computed({
+  get: () => props.config.parameters || {},
+  set: (val) => { props.config.parameters = val }
+})
+
+// 为了便于模板中绑定，保留一个输出变量显示
 const outputVarDisplay = computed(() => {
-  const varName = localConfig.outputVar || 'function_result'
+  const varName = outputVar.value
   return `{{var.${varName}}}`
 })
 
+// ========== 函数列表与参数 Schema ==========
 const functionList = ref([])
 const functionLoading = ref(false)
-const parametersJson = ref('{}')
-
-const insertParamVariable = (varPath) => {
-  const variable = `"{{${varPath}}}"`
-  if (parametersJson.value === '{}' || parametersJson.value === '') {
-    parametersJson.value = `{\n  "field": ${variable}\n}`
-  } else {
-    const lastBrace = parametersJson.value.lastIndexOf('}')
-    if (lastBrace !== -1) {
-      const before = parametersJson.value.substring(0, lastBrace)
-      const after = parametersJson.value.substring(lastBrace)
-      if (before.trim().endsWith('{')) {
-        parametersJson.value = before + `\n  "field": ${variable}` + after
-      } else {
-        parametersJson.value = before + `,\n  "field": ${variable}` + after
-      }
-    }
-  }
-}
-
-const formatParametersJson = () => {
-  if (!parametersJson.value || parametersJson.value.trim() === '') {
-    parametersJson.value = '{}'
-    return
-  }
-  try {
-    const parsed = JSON.parse(parametersJson.value)
-    parametersJson.value = JSON.stringify(parsed, null, 2)
-    ElMessage.success('JSON格式化成功')
-  } catch (e) {
-    ElMessage.warning('JSON格式错误，请检查')
-  }
-}
-
-const clearParameters = () => {
-  parametersJson.value = '{}'
-  localConfig.parameters = {}
-}
-
-const updateParameters = () => {
-  try {
-    if (parametersJson.value && parametersJson.value.trim()) {
-      localConfig.parameters = JSON.parse(parametersJson.value)
-    } else {
-      localConfig.parameters = {}
-    }
-  } catch (e) {
-    console.warn('参数JSON格式错误')
-  }
-}
+const paramSchema = ref({})
+const paramValues = ref({}) // 用户填写的参数值
 
 const loadFunctionList = async () => {
   if (functionLoading.value) return
@@ -175,20 +146,99 @@ const loadFunctionList = async () => {
   }
 }
 
-if (localConfig.parameters) {
+const onFunctionChange = async (funcName) => {
+  if (!funcName) {
+    paramSchema.value = {}
+    paramValues.value = {}
+    return
+  }
   try {
-    parametersJson.value = JSON.stringify(localConfig.parameters, null, 2)
+    const res = await functionApi.getFunctionInfo(funcName)
+    if (res.code === 200 && res.data) {
+      const schemaStr = res.data.paramsSchema
+      let parsedSchema = {}
+      let props = {}
+      let required = []
+      if (schemaStr) {
+        try {
+          parsedSchema = JSON.parse(schemaStr)
+          if (parsedSchema.properties) {
+            props = parsedSchema.properties
+            required = parsedSchema.required || []
+          } else if (parsedSchema.type === 'object' && parsedSchema.properties) {
+            props = parsedSchema.properties
+            required = parsedSchema.required || []
+          } else {
+            const excludeKeys = ['type', 'required', 'properties', 'definitions', '$schema', 'additionalProperties']
+            const filtered = {}
+            Object.keys(parsedSchema).forEach(key => {
+              if (!excludeKeys.includes(key)) filtered[key] = parsedSchema[key]
+            })
+            props = filtered
+            if (parsedSchema.required) required = parsedSchema.required
+          }
+        } catch (e) {
+          console.warn('解析 paramsSchema 失败', e)
+        }
+      }
+
+      const flatSchema = {}
+      Object.keys(props).forEach(key => {
+        flatSchema[key] = {
+          ...props[key],
+          required: required.includes(key)
+        }
+      })
+      paramSchema.value = flatSchema
+
+      const newValues = {}
+      const existingParams = parameters.value
+      Object.keys(flatSchema).forEach(key => {
+        if (existingParams && existingParams[key] !== undefined) {
+          newValues[key] = existingParams[key]
+        } else {
+          const def = flatSchema[key].default
+          newValues[key] = def !== undefined ? def : ''
+        }
+      })
+      paramValues.value = newValues
+    }
   } catch (e) {
-    parametersJson.value = '{}'
+    ElMessage.error('加载函数详情失败')
   }
 }
 
-watch(localConfig, (newVal) => {
-  emit('update', newVal)
+const isParamRequired = (paramName) => {
+  return paramSchema.value[paramName]?.required || false
+}
+
+// 插入变量
+const insertParamVariable = (paramName, varPath) => {
+  const variable = `{{${varPath}}}`
+  const current = paramValues.value[paramName] || ''
+  paramValues.value[paramName] = current + variable
+}
+
+// ========== 参数值变化 → 自动写回 config.parameters ==========
+// 由于 paramValues 是本地 ref，需要手动同步到 computed 的 parameters
+// 这里使用深度 watch 仍然不方便，所以改用 computed 的 get/set 结合 paramValues 变化同步
+// 更简单的做法：直接在每次修改 paramValues 后同步
+// 但 paramValues 是 ref，无法自动触发 set，因此用一个 watch 来同步参数
+watch(paramValues, (newVal) => {
+  parameters.value = { ...newVal }
 }, { deep: true })
+
+// 初始化
+onMounted(() => {
+  loadFunctionList()
+  if (functionName.value) {
+    onFunctionChange(functionName.value)
+  }
+})
 </script>
 
 <style scoped>
+
 .var-code {
   font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
   font-size: 12px;
@@ -199,14 +249,37 @@ watch(localConfig, (newVal) => {
   color: #64748b;
   margin-left: 8px;
 }
-.param-toolbar {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
+
 .form-tip {
   font-size: 12px;
   color: #8b8fa9;
   margin-top: 4px;
 }
+
+.param-item {
+  margin-bottom: 16px;
+}
+
+.param-input-wrapper {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.param-input-wrapper .param-input {
+  flex: 1;
+}
+
+.param-hint {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.no-params-hint {
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 8px 0;
+}
+
 </style>

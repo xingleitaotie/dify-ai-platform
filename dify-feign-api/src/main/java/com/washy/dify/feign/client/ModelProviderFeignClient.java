@@ -2,6 +2,7 @@
 package com.washy.dify.feign.client;
 
 import com.washy.dify.common.entity.function.FunctionChatRequest;
+import com.washy.dify.common.entity.llm.ChatRequestDTO;
 import com.washy.dify.common.result.Result;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,5 +24,11 @@ public interface ModelProviderFeignClient {
      */
     @PostMapping(value = "/api/provider/unified/chat/function")
     Result<String> functionChat(@RequestBody FunctionChatRequest request);
+
+    /**
+     * 传入模型配置参数查询
+     */
+    @PostMapping("/api/provider/unified/chat/condition")
+    Result<String> conditionChat(@RequestBody ChatRequestDTO request);
 
 }

@@ -73,7 +73,7 @@ public class LlmChatController {
     @PostMapping("/chat/with-config")
     @ApiOperation("带配置ID的AI对话")
     public Result<String> chatWithConfig(@RequestBody ChatRequestDTO request) {
-        String result = llmService.chat(request);
+        String result = llmService.conditionChat(request);
         return Result.success(result);
     }
 

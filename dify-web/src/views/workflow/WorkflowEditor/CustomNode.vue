@@ -12,13 +12,31 @@
       <div class="node-preview">{{ preview }}</div>
     </div>
 
-    <!-- 右侧输出点：END 节点隐藏 -->
+    <!-- 非结束节点 && 非条件节点：单个输出点（可拖拽连线或点击添加节点） -->
     <Handle
-        v-if="type !== 'END'"
+        v-if="type !== 'END' && type !== 'CONDITION'"
         type="source"
         :position="Position.Right"
         class="handle handle-right"
-    />
+        :class="{ 'has-output': hasOutputEdge, 'no-output': !hasOutputEdge }"
+    >
+    </Handle>
+
+    <!-- 条件节点：为每个分支生成一个输出 Handle -->
+    <template v-if="type === 'CONDITION'">
+      <Handle
+          v-for="(branch, index) in branchList"
+          :key="branch.id"
+          :id="branch.id"
+          type="source"
+          :position="Position.Right"
+          class="handle handle-branch"
+          :style="{ top: `${((index + 1) / (branchList.length + 1)) * 100}%` }"
+          :title="branch.label"
+      >
+        <span class="branch-label">{{ branch.short }}</span>
+      </Handle>
+    </template>
   </div>
 </template>
 
@@ -37,17 +55,27 @@ const props = defineProps({
 const deleteNodeFunc = inject('deleteNode')
 const edges = inject('edges', [])
 
+// 计算条件分支列表（用于多输出点）
+const branchList = computed(() => {
+  if (props.type !== 'CONDITION') return []
+  const branches = props.data?.config?.branches || [
+    { type: 'IF' },
+    { type: 'ELSE' }
+  ]
+  return branches.map((b, idx) => ({
+    id: b.type === 'ELSE' ? 'ELSE' : `${b.type}_${idx}`,
+    label: b.type === 'IF' ? '如果 (IF)' : b.type === 'ELSE_IF' ? `否则如果 (ELSE IF)` : '否则 (ELSE)',
+    short: b.type === 'IF' ? 'T' : b.type === 'ELSE_IF' ? 'F' : 'E',
+  }))
+})
+
+// 判断当前节点是否有输出连线（普通节点用）
+const hasOutputEdge = computed(() => {
+  return edges.value && edges.value.some(e => e.source === props.id)
+})
+
 const icon = computed(() => {
-  const icons = {
-    START: '▶',
-    END: '●',
-    LLM: '🤖',
-    RAG: '📚',
-    FUNCTION: '⚙️',
-    AGENT: '👤',
-    CONDITION: '🔀',
-    CODE: '</>'
-  }
+  const icons = { START: '▶', END: '●', LLM: '🤖', RAG: '📚', FUNCTION: '⚙️', AGENT: '👤', CONDITION: '🔀', CODE: '</>' }
   return icons[props.type] || '📄'
 })
 
@@ -58,7 +86,7 @@ const preview = computed(() => {
     case 'RAG': return config.query || '未配置查询'
     case 'FUNCTION': return config.functionName || '未选择函数'
     case 'AGENT': return config.agentId ? `Agent ID: ${config.agentId}` : '未选择Agent'
-    case 'CONDITION': return config.expression || '未配置条件'
+    case 'CONDITION': return config.branches ? `${config.branches.length} 个分支` : '未配置条件'
     case 'CODE': return config.language || 'JavaScript'
     default: return props.data.name
   }
@@ -146,5 +174,26 @@ function handleDelete() {
 .handle-right:hover {
   background: #a78bfa;
 }
+
+/* 条件节点分支输出点 */
+.handle-branch {
+  width: 18px !important;
+  height: 18px !important;
+  right: -9px !important;
+  background: #667eea;
+  border: 2px solid #1a1f3a;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: white;
+  z-index: 20;
+  transform: translateY(-50%) !important;
+  cursor: crosshair;
+  transition: transform 0.2s;
+}
+.handle-branch:hover { transform: translateY(-50%) scale(1.3) !important; background: #a78bfa; }
+.branch-label { font-size: 10px; font-weight: bold; line-height: 1; pointer-events: none; }
 
 </style>

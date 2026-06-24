@@ -88,7 +88,6 @@ const props = defineProps({
   node: { type: Object, required: true },
   nodeOutputVars: { type: Array, default: () => [] }
 })
-const emit = defineEmits(['update'])
 
 const inputVarList = inject('inputVarList', ref([
   { name: 'query', description: '用户输入的问题' }
@@ -99,7 +98,7 @@ const nodeOutputVars = computed(() => {
   return vars.filter(v => v.outputVar && v.nodeId !== props.node.id)
 })
 
-const localConfig = reactive(props.config)
+const localConfig = props.config
 const outputVarDisplay = computed(() => {
   const varName = localConfig.outputVar || 'agent_result'
   return `{{var.${varName}}}`
