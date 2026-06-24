@@ -4,7 +4,7 @@
 
     <el-form-item label="Agent" prop="agentId">
       <el-select
-          v-model="localConfig.agentId"
+          v-model="agentId"
           placeholder="选择Agent"
           filterable
           :loading="agentLoading"
@@ -58,10 +58,10 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-          <el-button size="small" @click="localConfig.query = ''" plain>清空</el-button>
+          <el-button size="small" @click="query = ''" plain>清空</el-button>
         </div>
         <el-input
-            v-model="localConfig.query"
+            v-model="query"
             type="textarea"
             :rows="3"
             :placeholder="'输入数据，支持变量引用，如：{{input.query}} 或 {{var.xxx}}'"
@@ -72,14 +72,14 @@
     <el-divider content-position="left">输出配置</el-divider>
 
     <el-form-item label="输出变量名" prop="outputVar">
-      <el-input v-model="localConfig.outputVar" placeholder="例如: agent_result" />
+      <el-input v-model="outputVar" placeholder="例如: agent_result" />
       <div class="form-tip">其他节点可通过 <code>{{ outputVarDisplay }}</code> 引用</div>
     </el-form-item>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, watch, computed, inject } from 'vue'
+import { ref, computed, inject } from 'vue'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { agentApi } from '@/api'
 
@@ -98,9 +98,24 @@ const nodeOutputVars = computed(() => {
   return vars.filter(v => v.outputVar && v.nodeId !== props.node.id)
 })
 
-const localConfig = props.config
+// 双向绑定，直接操作父组件草稿
+const agentId = computed({
+  get: () => props.config.agentId ?? null,
+  set: (val) => { props.config.agentId = val }
+})
+
+const query = computed({
+  get: () => props.config.query || '',
+  set: (val) => { props.config.query = val }
+})
+
+const outputVar = computed({
+  get: () => props.config.outputVar || 'agent_result',
+  set: (val) => { props.config.outputVar = val }
+})
+
 const outputVarDisplay = computed(() => {
-  const varName = localConfig.outputVar || 'agent_result'
+  const varName = outputVar.value
   return `{{var.${varName}}}`
 })
 
@@ -109,7 +124,7 @@ const agentLoading = ref(false)
 
 const insertQueryVariable = (varPath) => {
   const variable = `{{${varPath}}}`
-  localConfig.query = (localConfig.query || '') + variable
+  query.value = query.value + variable
 }
 
 const loadAgentList = async () => {
@@ -123,10 +138,6 @@ const loadAgentList = async () => {
     agentLoading.value = false
   }
 }
-
-watch(localConfig, (newVal) => {
-  emit('update', newVal)
-}, { deep: true })
 
 loadAgentList()
 </script>
