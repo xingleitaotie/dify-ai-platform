@@ -30,35 +30,43 @@ public class UnifiedChatService {
     private final SystemConfigService systemConfigService;
     private final ModelConfigService modelConfigService;
     private final UnifiedClientFactory clientFactory;
-    private final ModelConfigMapper modelConfigMapper;
+    
 
     private static final Long SSE_TIMEOUT = 30 * 60 * 1000L;
 
     /**
      * 缓存模型配置
      */
-    private ModelConfigEntity cachedChatModel = null;
-    private long lastCacheTime = 0;
+    private volatile ModelConfigEntity cachedChatModel = null;
+    private volatile long lastCacheTime = 0;
     private static final long CACHE_TTL = 60000;
 
     /**
      * 获取系统配置的Chat模型（带缓存）
      */
     private ModelConfigEntity getSystemChatModel() {
-        // 缓存检查
+        // 双重检查锁定 - 第一次检查（无锁）
         if (cachedChatModel != null && (System.currentTimeMillis() - lastCacheTime) < CACHE_TTL) {
             return cachedChatModel;
         }
 
-        // 从系统配置获取模型ID
-        ModelConfigEntity modelConfig = systemConfigService.getCapabilityConfig("chat");
-        if (modelConfig == null) {
-            throw new ModelProviderException("未配置系统大语言模型，请先在系统模型配置中设置");
-        }
+        // 同步获取
+        synchronized (this) {
+            // 第二次检查（有锁）
+            if (cachedChatModel != null && (System.currentTimeMillis() - lastCacheTime) < CACHE_TTL) {
+                return cachedChatModel;
+            }
 
-        cachedChatModel = modelConfig;
-        lastCacheTime = System.currentTimeMillis();
-        return modelConfig;
+            // 从系统配置获取模型ID
+            ModelConfigEntity modelConfig = systemConfigService.getCapabilityConfig("chat");
+            if (modelConfig == null) {
+                throw new ModelProviderException("未配置系统大语言模型，请先在系统模型配置中设置");
+            }
+
+            cachedChatModel = modelConfig;
+            lastCacheTime = System.currentTimeMillis();
+            return modelConfig;
+        }
     }
 
     /**

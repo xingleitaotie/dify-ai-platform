@@ -1,11 +1,28 @@
 <template>
   <div class="code-config">
-    <!-- 语言选择 -->
+    <!-- 语言选择：改为自定义下拉 -->
     <el-form-item label="语言">
-      <el-select v-model="language" placeholder="选择语言">
-        <el-option label="JavaScript" value="js" />
-        <el-option label="Python" value="python" disabled />
-      </el-select>
+      <div class="language-selector">
+        <el-dropdown trigger="click" @command="setLanguage">
+          <div class="language-trigger">
+            <span class="language-value">{{ getLanguageLabel(language) }}</span>
+            <el-icon class="language-arrow"><ArrowDown /></el-icon>
+          </div>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                  v-for="lang in languageOptions"
+                  :key="lang.value"
+                  :command="lang.value"
+                  :disabled="lang.disabled"
+              >
+                {{ lang.label }}
+                <span v-if="lang.disabled" style="color: #64748b; font-size: 12px; margin-left: 8px;">（暂不支持）</span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
       <div class="form-tip">当前仅支持 JavaScript</div>
     </el-form-item>
 
@@ -16,17 +33,17 @@
             v-model="input.name"
             placeholder="变量名"
             size="small"
-            style="width: 140px"
+            class="var-name-input"
         />
         <div class="input-value-wrapper">
           <el-input
               v-model="input.value"
               placeholder="变量值/引用"
               size="small"
-              style="flex: 1"
+              class="var-value-input"
           />
           <el-dropdown @command="(cmd) => insertInputValue(index, cmd)">
-            <el-button size="small" plain>
+            <el-button size="small" plain class="insert-btn">
               插入变量 <el-icon><ArrowDown /></el-icon>
             </el-button>
             <template #dropdown>
@@ -63,7 +80,7 @@
             </template>
           </el-dropdown>
         </div>
-        <el-button type="danger" size="small" @click="removeInput(index)">删除</el-button>
+        <el-button type="danger" size="small" @click="removeInput(index)" class="del-btn">删除</el-button>
       </div>
       <el-button size="small" @click="addInput">添加输入</el-button>
       <div class="form-tip">变量值支持引用 {{ '{' }}{{ '{' }}input.xxx{{ '}' }}{{ '}' }} 或 {{ '{' }}{{ '{' }}var.xxx{{ '}' }}{{ '}' }}</div>
@@ -72,7 +89,7 @@
     <!-- 代码编辑区 -->
     <el-form-item label="代码" prop="code">
       <div class="code-toolbar">
-        <el-button size="small" @click="resetCodeTemplate">重置模板</el-button>
+        <el-button size="small" @click="resetCodeTemplate">样例代码</el-button>
         <el-button size="small" @click="formatCode" plain>格式化</el-button>
       </div>
       <el-input
@@ -119,6 +136,12 @@ const nodeOutputVars = computed(() => {
   return vars.filter(v => v.outputVar && v.nodeId !== props.node.id)
 })
 
+// 语言选项
+const languageOptions = [
+  { label: 'JavaScript', value: 'js', disabled: false },
+  { label: 'Python', value: 'python', disabled: true }
+]
+
 // 默认代码模板
 const DEFAULT_CODE_TEMPLATE = `function main(params) {
     // 在此编写您的核心逻辑
@@ -127,26 +150,66 @@ const DEFAULT_CODE_TEMPLATE = `function main(params) {
     return { output: result };
 }`
 
-// ========== 双向 computed，直接操作 props.config ==========
+// ========== 双向 computed，自动初始化默认值 ==========
 const language = computed({
-  get: () => props.config.language || 'js',
-  set: (val) => { props.config.language = val }
+  get: () => {
+    if (!props.config.language) {
+      props.config.language = 'js'
+    }
+    return props.config.language
+  },
+  set: (val) => {
+    props.config.language = val
+  }
 })
 
 const code = computed({
-  get: () => props.config.code || DEFAULT_CODE_TEMPLATE,
-  set: (val) => { props.config.code = val }
+  get: () => {
+    if (!props.config.code) {
+      // 关键：首次访问即写入默认模板
+      props.config.code = DEFAULT_CODE_TEMPLATE
+    }
+    return props.config.code
+  },
+  set: (val) => {
+    props.config.code = val
+  }
 })
 
 const outputVar = computed({
-  get: () => props.config.outputVar || 'code_result',
-  set: (val) => { props.config.outputVar = val }
+  get: () => {
+    if (!props.config.outputVar) {
+      props.config.outputVar = 'code_result'
+    }
+    return props.config.outputVar
+  },
+  set: (val) => {
+    props.config.outputVar = val
+  }
 })
 
 const inputs = computed({
-  get: () => props.config.inputs || [],
-  set: (val) => { props.config.inputs = val }
+  get: () => {
+    if (!props.config.inputs) {
+      props.config.inputs = []
+    }
+    return props.config.inputs
+  },
+  set: (val) => {
+    props.config.inputs = val
+  }
 })
+
+// 获取语言显示名称
+const getLanguageLabel = (value) => {
+  const found = languageOptions.find(l => l.value === value)
+  return found ? found.label : value
+}
+
+// 设置语言
+const setLanguage = (value) => {
+  language.value = value
+}
 
 // 输出变量显示
 const outputVarDisplay = computed(() => {
@@ -212,18 +275,59 @@ const insertInputValue = (index, varPath) => {
   color: #8b8fa9;
   margin-top: 4px;
 }
+.form-tip code {
+  background: #1a1f3a;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #a78bfa;
+  font-size: 12px;
+}
 
 .var-row {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+  background: #0f1228;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #2a2f4a;
+}
+.var-name-input {
+  flex: 0 0 30%;
+  min-width: 100px;
+}
+.var-value-input {
+  flex: 1;
 }
 .input-value-wrapper {
   display: flex;
   flex: 1;
   gap: 4px;
   align-items: center;
+}
+.insert-btn {
+  padding: 5px 10px !important;
+  font-size: 12px !important;
+  background: rgba(102, 126, 234, 0.08) !important;
+  border: 1px solid rgba(102, 126, 234, 0.2) !important;
+  color: #a78bfa !important;
+  white-space: nowrap;
+}
+.insert-btn:hover {
+  background: rgba(102, 126, 234, 0.2) !important;
+  border-color: #667eea !important;
+}
+.del-btn {
+  flex-shrink: 0;
+  background: rgba(239, 68, 68, 0.15) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  color: #f87171 !important;
+}
+.del-btn:hover {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
 }
 
 .code-toolbar {
@@ -235,15 +339,98 @@ const insertInputValue = (index, varPath) => {
   font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
-  background: #0a0e27;
-  color: #e2e8f0;
+  background: #0a0e27 !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #2a2f4a !important;
+  border-radius: 8px !important;
+}
+.code-editor :deep(.el-textarea__inner:focus) {
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
 }
 
-.form-tip code {
+/* 语言自定义下拉 */
+.language-selector {
+  display: inline-block;
+}
+.language-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
   background: #1a1f3a;
-  padding: 1px 6px;
-  border-radius: 4px;
+  border: 1px solid #2a2f4a;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 32px;
+  min-width: 140px;
+  font-size: 13px;
+}
+.language-trigger:hover {
+  border-color: #667eea;
+  background: #22284a;
+}
+.language-value {
   color: #a78bfa;
-  font-size: 12px;
+}
+.language-arrow {
+  color: #94a3b8;
+  transition: transform 0.2s;
+}
+.language-trigger:hover .language-arrow {
+  color: #a78bfa;
+}
+
+/* 深色组件统一覆盖 */
+:deep(.el-input .el-input__wrapper) {
+  background: #0f1228 !important;
+  border: 1px solid #2a2f4a !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+:deep(.el-input .el-input__wrapper:hover) {
+  border-color: #667eea !important;
+}
+:deep(.el-input .el-input__wrapper.is-focus) {
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
+}
+:deep(.el-input .el-input__inner) {
+  color: #ffffff !important;
+}
+:deep(.el-input .el-input__inner::placeholder) {
+  color: #64748b !important;
+}
+
+:deep(.el-dropdown-menu) {
+  background: #1a1f3a !important;
+  border: 1px solid #2a2f4a !important;
+  border-radius: 8px !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item) {
+  color: #cbd5e6 !important;
+  background: transparent !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item:hover) {
+  background: #2a2f4a !important;
+  color: #ffffff !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item.is-selected) {
+  color: #667eea !important;
+  background: rgba(102, 126, 234, 0.1) !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item.is-disabled) {
+  color: #4a4f6a !important;
+  cursor: not-allowed !important;
+}
+
+:deep(.el-divider) {
+  border-color: #2a2f4a !important;
+}
+:deep(.el-divider__text) {
+  color: #94a3b8 !important;
+  font-weight: 500;
+  font-size: 13px;
 }
 </style>

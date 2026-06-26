@@ -92,6 +92,16 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
             nodeExec.setNodeOutput(objectMapper.writeValueAsString(output));
             nodeExec.setStatus("SUCCESS");
 
+            // ★ 如果是条件节点，提取分支并存入上下文
+            if ("CONDITION".equals(node.getNodeType()) && output instanceof Map) {
+                Map<?, ?> outputMap = (Map<?, ?>) output;
+                String branch = (String) outputMap.get("branch");
+                if (branch != null) {
+                    context.setLastBranch(branch);
+                    log.info("条件节点 {} 输出分支: {}", node.getName(), branch);
+                }
+            }
+
             // 如果节点配置了输出变量名，存入上下文
             String outputVar = config != null ? (String) config.get("outputVar") : null;
             if (outputVar != null && !outputVar.isEmpty() && output != null) {
@@ -162,7 +172,7 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
                 businessFields = new String[]{"agentId", "query", "outputVar"};
                 break;
             case "CONDITION":
-                businessFields = new String[]{"expression", "outputVar"};
+                businessFields = new String[]{"outputVar", "branches"};
                 break;
             case "CODE":
                 businessFields = new String[]{"code", "language", "outputVar", "inputs"};
@@ -335,7 +345,7 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
 
     private WorkflowNode getNextNode(WorkflowNode currentNode, List<WorkflowEdge> edges,
                                      WorkflowContext context, Map<String, WorkflowNode> nodeMap) {
-        List<WorkflowEdge> outgoingEdges = new ArrayList<WorkflowEdge>();
+        List<WorkflowEdge> outgoingEdges = new ArrayList<>();
         for (WorkflowEdge edge : edges) {
             if (edge.getSourceId().equals(currentNode.getNodeId())) {
                 outgoingEdges.add(edge);
@@ -346,22 +356,22 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
             return null;
         }
 
-        // 如果是条件节点，根据条件表达式选择分支
+        // 条件节点：根据分支ID匹配边
         if ("CONDITION".equals(currentNode.getNodeType())) {
-            for (WorkflowEdge edge : outgoingEdges) {
-                if (edge.getCondition() != null && !edge.getCondition().isEmpty()) {
-                    String condition = replaceVariables(edge.getCondition(), context);
-                    Boolean result = evaluateSimpleExpression(condition);
-                    if (result != null && result) {
+            String branch = context.getLastBranch();
+            if (branch != null) {
+                for (WorkflowEdge edge : outgoingEdges) {
+                    if (branch.equals(edge.getSourceHandle())) {
                         return nodeMap.get(edge.getTargetId());
                     }
                 }
             }
-            // 默认分支
+            // 未匹配则取第一条边作为默认（降级策略）
+            log.warn("条件节点 {} 未找到匹配边，使用默认分支", currentNode.getName());
             return nodeMap.get(outgoingEdges.get(0).getTargetId());
         }
 
-        // 普通节点，取第一个边
+        // 普通节点：取第一条出边
         return nodeMap.get(outgoingEdges.get(0).getTargetId());
     }
 
@@ -445,99 +455,6 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
         }
     }
 
-    private String replaceVariables(String text, WorkflowContext context) {
-        if (text == null) return null;
-        String result = text;
-
-        // 替换 {{input.xxx}}
-        if (context.getInputs() != null) {
-            for (Map.Entry<String, Object> entry : context.getInputs().entrySet()) {
-                String key = entry.getKey();
-                String value = String.valueOf(entry.getValue());
-                result = result.replace("{{input." + key + "}}", value);
-            }
-        }
-
-        // 替换 {{var.xxx}}
-        if (context.getVariables() != null) {
-            for (Map.Entry<String, Object> entry : context.getVariables().entrySet()) {
-                String key = entry.getKey();
-                String value = String.valueOf(entry.getValue());
-                result = result.replace("{{var." + key + "}}", value);
-                result = result.replace("{{" + key + "}}", value);
-            }
-        }
-
-        return result;
-    }
-
-    private Boolean evaluateSimpleExpression(String expression) {
-        if (expression == null || expression.isEmpty()) {
-            return false;
-        }
-
-        try {
-            // 简单的表达式求值
-            expression = expression.trim();
-
-            // 处理等于比较
-            if (expression.contains("==")) {
-                String[] parts = expression.split("==");
-                if (parts.length == 2) {
-                    String left = parts[0].trim();
-                    String right = parts[1].trim();
-                    // 去除引号
-                    if (right.startsWith("\"") && right.endsWith("\"")) {
-                        right = right.substring(1, right.length() - 1);
-                    }
-                    return left.equals(right);
-                }
-            }
-
-            // 处理大于比较
-            if (expression.contains(">")) {
-                String[] parts = expression.split(">");
-                if (parts.length == 2) {
-                    try {
-                        double left = Double.parseDouble(parts[0].trim());
-                        double right = Double.parseDouble(parts[1].trim());
-                        return left > right;
-                    } catch (NumberFormatException e) {
-                        return false;
-                    }
-                }
-            }
-
-            // 处理小于比较
-            if (expression.contains("<")) {
-                String[] parts = expression.split("<");
-                if (parts.length == 2) {
-                    try {
-                        double left = Double.parseDouble(parts[0].trim());
-                        double right = Double.parseDouble(parts[1].trim());
-                        return left < right;
-                    } catch (NumberFormatException e) {
-                        return false;
-                    }
-                }
-            }
-
-            // 处理布尔值
-            if ("true".equalsIgnoreCase(expression)) {
-                return true;
-            }
-            if ("false".equalsIgnoreCase(expression)) {
-                return false;
-            }
-
-            return false;
-
-        } catch (Exception e) {
-            log.error("表达式求值失败: {}", expression, e);
-            return false;
-        }
-    }
-
     @Override
     public SseEmitter streamExecuteWorkflow(WorkflowExecuteDTO dto) {
         final SseEmitter emitter = new SseEmitter(300000L); // 5分钟超时
@@ -554,7 +471,6 @@ public class WorkflowExecuteServiceImpl implements WorkflowExecuteService {
                     emitter.send(SseEmitter.event().name("start").data(startData));
 
                     // 获取工作流配置
-                    Workflow workflow = workflowMapper.selectById(dto.getWorkflowId());
                     List<WorkflowNode> nodes = nodeMapper.selectByWorkflowId(dto.getWorkflowId());
                     List<WorkflowEdge> edges = edgeMapper.selectByWorkflowId(dto.getWorkflowId());
 

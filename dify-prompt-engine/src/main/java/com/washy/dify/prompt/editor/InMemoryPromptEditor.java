@@ -1,10 +1,7 @@
 package com.washy.dify.prompt.editor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.washy.dify.common.entity.prompt.PromptTemplateVO;
-import com.washy.dify.prompt.core.PromptManager;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -18,10 +15,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class InMemoryPromptEditor implements PromptEditor {
     
     private final Map<String, PromptTemplateVO> templateStore = new ConcurrentHashMap<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    
-    @Autowired
-    private PromptManager promptManager;
     
     @Override
     public PromptTemplateVO save(PromptTemplateVO template) {

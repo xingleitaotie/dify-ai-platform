@@ -30,7 +30,6 @@ public class FilePromptLoader implements PromptLoader {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public List<PromptTemplate> loadAll() {
         List<PromptTemplate> templates = new ArrayList<>();
 
@@ -47,12 +46,12 @@ public class FilePromptLoader implements PromptLoader {
                 try (InputStream is = resource.getInputStream()) {
                     Map<String, Object> data = yaml.load(is);
 
-                    String name = (String) data.getOrDefault("name",
+                    String name = getStringValue(data, "name",
                             resource.getFilename().replace(".yaml", ""));
-                    String version = (String) data.getOrDefault("version", "v1.0.0");
-                    String description = (String) data.getOrDefault("description", "");
-                    String template = (String) data.getOrDefault("template", "");
-                    boolean streaming = (boolean) data.getOrDefault("streaming", false);
+                    String version = getStringValue(data, "version", "v1.0.0");
+                    String description = getStringValue(data, "description", "");
+                    String template = getStringValue(data, "template", "");
+                    boolean streaming = getBooleanValue(data, "streaming", false);
 
                     ModelParams modelParams = parseModelParams(data);
 
@@ -76,30 +75,56 @@ public class FilePromptLoader implements PromptLoader {
         return templates;
     }
 
-    @SuppressWarnings("unchecked")
     private ModelParams parseModelParams(Map<String, Object> data) {
         ModelParams.ModelParamsBuilder builder = ModelParams.builder();
 
-        Map<String, Object> params = (Map<String, Object>) data.get("model_params");
-        if (params != null) {
-            if (params.containsKey("temperature")) {
-                builder.temperature(((Number) params.get("temperature")).floatValue());
+        Object paramsObj = data.get("model_params");
+        if (paramsObj instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> params = (Map<String, Object>) paramsObj;
+            
+            Number tempValue = getNumberValue(params, "temperature");
+            if (tempValue != null) {
+                builder.temperature(tempValue.floatValue());
             }
-            if (params.containsKey("max_tokens")) {
-                builder.maxTokens(((Number) params.get("max_tokens")).intValue());
+            
+            Number maxTokensValue = getNumberValue(params, "max_tokens");
+            if (maxTokensValue != null) {
+                builder.maxTokens(maxTokensValue.intValue());
             }
-            if (params.containsKey("top_p")) {
-                builder.topP(((Number) params.get("top_p")).floatValue());
+            
+            Number topPValue = getNumberValue(params, "top_p");
+            if (topPValue != null) {
+                builder.topP(topPValue.floatValue());
             }
-            if (params.containsKey("top_k")) {
-                builder.topK(((Number) params.get("top_k")).intValue());
+            
+            Number topKValue = getNumberValue(params, "top_k");
+            if (topKValue != null) {
+                builder.topK(topKValue.intValue());
             }
-            if (params.containsKey("repeat_penalty")) {
-                builder.repeatPenalty(((Number) params.get("repeat_penalty")).floatValue());
+            
+            Number repeatPenaltyValue = getNumberValue(params, "repeat_penalty");
+            if (repeatPenaltyValue != null) {
+                builder.repeatPenalty(repeatPenaltyValue.floatValue());
             }
         }
 
         return builder.build();
+    }
+
+    private String getStringValue(Map<String, Object> data, String key, String defaultValue) {
+        Object value = data.get(key);
+        return value != null ? String.valueOf(value) : defaultValue;
+    }
+
+    private boolean getBooleanValue(Map<String, Object> data, String key, boolean defaultValue) {
+        Object value = data.get(key);
+        return value != null ? Boolean.parseBoolean(String.valueOf(value)) : defaultValue;
+    }
+
+    private Number getNumberValue(Map<String, Object> data, String key) {
+        Object value = data.get(key);
+        return value instanceof Number ? (Number) value : null;
     }
 
     private PromptTemplate createTemplate(String name, String version, String description,

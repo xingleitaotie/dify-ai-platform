@@ -55,3 +55,14 @@ eureka:
 jwt:
   secret: my-super-secret-key-64bytes-long-abcdefghijklmnopqrstuvwxyz123456
   expire: 86400
+
+cors:
+  allowed-origins: http://localhost:8080,http://localhost:3000
+  allowed-methods: GET,POST,PUT,DELETE,OPTIONS,PATCH
+  allowed-headers: Content-Type,Authorization,token,X-User-Id,X-User-Name,Accept,Origin
+  exposed-headers: Content-Type,Cache-Control,X-Accel-Buffering
+  allow-credentials: true
+  max-age: 3600
+
+auth:
+  whitelist: /api/user/register,/api/user/login

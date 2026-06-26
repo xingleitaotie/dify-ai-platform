@@ -10,7 +10,7 @@ import com.washy.dify.common.entity.llm.ChatMessage;
 import com.washy.dify.common.entity.llm.ChatRequestDTO;
 import com.washy.dify.common.entity.llm.StreamChatRequestDTO;
 import com.washy.dify.common.entity.prompt.PromptTemplateVO;
-import com.washy.dify.common.exception.GlobalExceptionHandler;
+import com.washy.dify.common.exception.AppException;
 import com.washy.dify.common.result.Result;
 import com.washy.dify.feign.client.FunctionFeignClient;
 import com.washy.dify.feign.client.ModelProviderFeignClient;
@@ -707,7 +707,7 @@ public class LlmService {
 
             Result<String> llmResult = modelProviderFeignClient.functionChat(functionChatRequest);
             if (llmResult.getCode() != 200) {
-                throw new GlobalExceptionHandler("模型调用失败：" + llmResult.getMsg());
+                throw new AppException("模型调用失败：" + llmResult.getMsg());
             }
 
             String llmResponse = llmResult.getData();
@@ -753,7 +753,7 @@ public class LlmService {
 
         } catch (Exception e) {
             log.error("Function Calling 失败", e);
-            throw new GlobalExceptionHandler("AI 对话异常：" + e.getMessage());
+            throw new AppException("AI 对话异常：" + e.getMessage());
         }
     }
 
@@ -897,7 +897,7 @@ public class LlmService {
 //            request.setParameters(json.getObject("params", Object.class));
 //            return request;
 //        } catch (Exception e) {
-//            throw new GlobalExceptionHandler("解析函数调用失败：" + e.getMessage());
+//            throw new AppException("解析函数调用失败：" + e.getMessage());
 //        }
 //    }
 //

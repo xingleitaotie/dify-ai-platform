@@ -2,7 +2,8 @@ package com.washy.dify.rag.client;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
-import com.washy.dify.common.exception.GlobalExceptionHandler;
+import com.alibaba.fastjson2.TypeReference;
+import com.washy.dify.common.exception.AppException;
 import com.washy.dify.rag.config.RagProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -14,6 +15,11 @@ import javax.annotation.Resource;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Chroma 向量数据库 API 客户端
+ * <p>提供与 Chroma 向量数据库交互的封装方法，包括集合管理、向量插入、查询等操作。</p>
+ * <p>使用 RestTemplate 进行 HTTP 请求，内部维护集合 ID 缓存以提高性能。</p>
+ */
 @Slf4j
 @Component
 public class ChromaApiClient {
@@ -135,12 +141,17 @@ public class ChromaApiClient {
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
             ResponseEntity<JSONObject> resp = restTemplate.exchange(url, HttpMethod.POST, request, JSONObject.class);
 
-            String collectionId = resp.getBody().getString("id");
+            JSONObject respBody = resp.getBody();
+            if (respBody == null) {
+                throw new AppException("创建集合返回空响应");
+            }
+
+            String collectionId = respBody.getString("id");
             log.info("创建集合成功: {}, id: {}", collectionName, collectionId);
             return collectionId;
         } catch (Exception e) {
             log.error("创建集合失败: {}", collectionName, e);
-            throw new GlobalExceptionHandler("创建集合失败: " + e.getMessage());
+            throw new AppException("创建集合失败: " + e.getMessage());
         }
     }
 
@@ -163,7 +174,7 @@ public class ChromaApiClient {
             log.info("删除集合成功: {}", collectionName);
         } catch (Exception e) {
             log.error("删除集合失败: {}", collectionName, e);
-            throw new GlobalExceptionHandler("删除集合失败: " + e.getMessage());
+            throw new AppException("删除集合失败: " + e.getMessage());
         }
     }
 
@@ -196,7 +207,7 @@ public class ChromaApiClient {
             log.info("向量入库成功，集合: {}, 数量: {}", collectionName, ids.size());
         } catch (Exception e) {
             log.error("向量入库失败", e);
-            throw new GlobalExceptionHandler("向量入库失败: " + e.getMessage());
+            throw new AppException("向量入库失败: " + e.getMessage());
         }
     }
 
@@ -224,12 +235,24 @@ public class ChromaApiClient {
                     url, HttpMethod.POST, request, JSONObject.class);
             JSONObject result = response.getBody();
 
-            List<String> ids = (List<String>) result.get("ids");
-            List<String> documents = (List<String>) result.get("documents");
-            List<List<Float>> embeddings = (List<List<Float>>) result.get("embeddings");
+            if (result == null) {
+                log.warn("查询向量返回空响应");
+                return new ArrayList<>();
+            }
+
+            // 使用 TypeReference 安全解析
+            List<String> ids = result.getObject("ids", new TypeReference<List<String>>() {});
+            List<String> documents = result.getObject("documents", new TypeReference<List<String>>() {});
+            List<List<Float>> embeddings = result.getObject("embeddings", new TypeReference<List<List<Float>>>() {});
+
+            if (ids == null || documents == null || embeddings == null) {
+                log.warn("查询向量响应数据不完整");
+                return new ArrayList<>();
+            }
 
             List<Map<String, Object>> list = new ArrayList<>();
-            for (int i = 0; i < ids.size(); i++) {
+            int size = Math.min(Math.min(ids.size(), documents.size()), embeddings.size());
+            for (int i = 0; i < size; i++) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", ids.get(i));
                 map.put("text", documents.get(i));
@@ -270,18 +293,23 @@ public class ChromaApiClient {
                     url, HttpMethod.POST, request, JSONObject.class);
             JSONObject result = response.getBody();
 
-            List<String> ids = (List<String>) result.get("ids");
-            List<String> documents = (List<String>) result.get("documents");
-            List<List<Float>> embeddings = (List<List<Float>>) result.get("embeddings");
+            if (result == null) {
+                log.warn("查询分块详情返回空响应");
+                return new HashMap<>();
+            }
+
+            List<String> ids = result.getObject("ids", new TypeReference<List<String>>() {});
+            List<String> documents = result.getObject("documents", new TypeReference<List<String>>() {});
+            List<List<Float>> embeddings = result.getObject("embeddings", new TypeReference<List<List<Float>>>() {});
 
             Map<String, Object> map = new HashMap<>();
-            if (!ids.isEmpty()) {
+            if (ids != null && !ids.isEmpty() && documents != null && embeddings != null) {
                 map.put("id", ids.get(0));
                 map.put("text", documents.get(0));
                 map.put("embedding", embeddings.get(0));
 
                 // 添加元数据
-                List<Map<String, Object>> metadatas = (List<Map<String, Object>>) result.get("metadatas");
+                List<Map<String, Object>> metadatas = result.getObject("metadatas", new TypeReference<List<Map<String, Object>>>() {});
                 if (metadatas != null && !metadatas.isEmpty()) {
                     map.put("metadata", metadatas.get(0));
                 }
@@ -290,7 +318,7 @@ public class ChromaApiClient {
             return map;
         } catch (Exception e) {
             log.error("查询分块详情异常: chunkId={}", chunkId, e);
-            throw new GlobalExceptionHandler("查询分块详情失败: " + e.getMessage());
+            throw new AppException("查询分块详情失败: " + e.getMessage());
         }
     }
 
@@ -314,10 +342,14 @@ public class ChromaApiClient {
 
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
             ResponseEntity<JSONObject> resp = restTemplate.exchange(url, HttpMethod.POST, request, JSONObject.class);
-            return resp.getBody();
+            JSONObject bodyResp = resp.getBody();
+            if (bodyResp == null) {
+                throw new AppException("向量检索返回空响应");
+            }
+            return bodyResp;
         } catch (Exception e) {
             log.error("向量检索失败", e);
-            throw new GlobalExceptionHandler("向量检索失败: " + e.getMessage());
+            throw new AppException("向量检索失败: " + e.getMessage());
         }
     }
 
@@ -336,7 +368,7 @@ public class ChromaApiClient {
 
             // 不指定 include，让它默认只返回 ids（默认行为）
             JSONObject body = new JSONObject();
-            // 限制只获取 1 条来获取总数？不，这样不对
+            // 限制只获取 1 条来获取总数？这样不对
             // 正确做法：不设置 limit，但只取 ids 数组的长度
 
             HttpHeaders headers = new HttpHeaders();
@@ -347,7 +379,11 @@ public class ChromaApiClient {
                     url, HttpMethod.POST, request, JSONObject.class);
             JSONObject result = response.getBody();
 
-            List<String> ids = (List<String>) result.get("ids");
+            if (result == null) {
+                return 0;
+            }
+
+            List<String> ids = result.getObject("ids", new TypeReference<List<String>>() {});
             return ids != null ? ids.size() : 0;
         } catch (Exception e) {
             log.error("获取集合中的文档数量失败: {}", collectionName, e);
@@ -381,13 +417,12 @@ public class ChromaApiClient {
                     url, HttpMethod.POST, request, JSONObject.class);
             JSONObject result = response.getBody();
 
-            if (result == null || !result.containsKey("metadatas")) {
+            if (result == null) {
                 log.warn("获取文档元数据失败: {}", collectionName);
                 return new ArrayList<>();
             }
 
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> metadatas = (List<Map<String, Object>>) result.get("metadatas");
+            List<Map<String, Object>> metadatas = result.getObject("metadatas", new TypeReference<List<Map<String, Object>>>() {});
 
             if (metadatas == null || metadatas.isEmpty()) {
                 return new ArrayList<>();
@@ -441,7 +476,7 @@ public class ChromaApiClient {
         // 目前 Chroma API 支持更新 metadata
         String collectionId = getCollectionIdByName(collectionName);
         if (collectionId == null) {
-            throw new RuntimeException("知识库不存在: " + collectionName);
+            throw new AppException("知识库不存在: " + collectionName);
         }
 
         try {
@@ -470,7 +505,7 @@ public class ChromaApiClient {
             log.info("更新知识库配置成功: {}", collectionName);
         } catch (Exception e) {
             log.error("更新知识库配置失败", e);
-            throw new RuntimeException("更新知识库配置失败: " + e.getMessage());
+            throw new AppException("更新知识库配置失败: " + e.getMessage());
         }
     }
 
@@ -513,7 +548,7 @@ public class ChromaApiClient {
 
         } catch (Exception e) {
             log.error("删除文档块失败: collection={}, documentId={}", collectionName, documentId, e);
-            throw new RuntimeException("删除文档块失败: " + e.getMessage());
+            throw new AppException("删除文档块失败: " + e.getMessage());
         }
     }
 
@@ -541,14 +576,12 @@ public class ChromaApiClient {
                     url, HttpMethod.POST, request, JSONObject.class);
             JSONObject result = response.getBody();
 
-            if (result == null || !result.containsKey("ids")) {
+            if (result == null) {
                 return new ArrayList<>();
             }
 
-            @SuppressWarnings("unchecked")
-            List<String> allIds = (List<String>) result.get("ids");
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> metadatas = (List<Map<String, Object>>) result.get("metadatas");
+            List<String> allIds = result.getObject("ids", new TypeReference<List<String>>() {});
+            List<Map<String, Object>> metadatas = result.getObject("metadatas", new TypeReference<List<Map<String, Object>>>() {});
 
             if (allIds == null || metadatas == null || allIds.size() != metadatas.size()) {
                 return new ArrayList<>();
@@ -605,7 +638,7 @@ public class ChromaApiClient {
 
         } catch (Exception e) {
             log.error("删除向量失败: collection={}, ids={}", collectionName, ids, e);
-            throw new RuntimeException("删除向量失败: " + e.getMessage());
+            throw new AppException("删除向量失败: " + e.getMessage());
         }
     }
 
@@ -638,7 +671,7 @@ public class ChromaApiClient {
 
         } catch (Exception e) {
             log.error("按条件删除向量失败: collection={}, where={}", collectionName, where, e);
-            throw new RuntimeException("按条件删除向量失败: " + e.getMessage());
+            throw new AppException("按条件删除向量失败: " + e.getMessage());
         }
     }
 
@@ -684,7 +717,7 @@ public class ChromaApiClient {
 
         } catch (Exception e) {
             log.error("更新向量失败: collection={}", collectionName, e);
-            throw new RuntimeException("更新向量失败: " + e.getMessage());
+            throw new AppException("更新向量失败: " + e.getMessage());
         }
     }
 

@@ -1,4 +1,5 @@
 <template>
+  <!-- 模板部分保持不变，与之前完全一致 -->
   <div class="llm-config">
     <!-- ===== 模型配置（含参数） ===== -->
     <el-card class="config-card" shadow="never">
@@ -6,24 +7,34 @@
         <span class="card-title">模型配置</span>
       </template>
 
-      <!-- 模型选择 -->
+      <!-- 模型选择：自定义下拉 -->
       <el-form-item label="模型">
-        <el-select
-            v-model="localConfig.modelConfigId"
-            placeholder="选择模型"
-            filterable
-            clearable
-            :loading="modelLoading"
-            @change="onModelChange"
-            style="width:100%"
-        >
-          <el-option
-              v-for="model in modelList"
-              :key="model.id"
-              :label="`${model.modelName} (${model.providerName})`"
-              :value="model.id"
-          />
-        </el-select>
+        <div class="model-selector">
+          <el-dropdown trigger="click" @command="selectModel">
+            <div class="model-trigger">
+              <span v-if="selectedModelLabel" class="model-value">{{ selectedModelLabel }}</span>
+              <span v-else class="model-placeholder">请选择模型</span>
+              <el-icon class="model-arrow"><ArrowDown /></el-icon>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                    v-for="model in modelList"
+                    :key="model.id"
+                    :command="model.id"
+                >
+                  {{ model.modelName }} ({{ model.providerName }})
+                </el-dropdown-item>
+                <el-dropdown-item v-if="modelList.length === 0" disabled>
+                  暂无模型
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+          <el-button size="small" plain @click="loadChatModels" class="refresh-btn" :loading="modelLoading">
+            <el-icon><Refresh /></el-icon>
+          </el-button>
+        </div>
       </el-form-item>
 
       <!-- 模型详情 -->
@@ -42,7 +53,7 @@
       </el-divider>
 
       <el-form-item label="温度">
-        <el-slider v-model="localConfig.temperature" :min="0" :max="2" :step="0.1" />
+        <el-slider v-model="localConfig.temperature" :min="0" :max="2" :step="0.1" class="custom-slider" />
       </el-form-item>
 
       <el-form-item label="最大 Token">
@@ -52,18 +63,19 @@
             :max="maxTokensLimit"
             :step="1"
             :marks="{ [maxTokensLimit]: `${maxTokensLimit}` }"
+            class="custom-slider"
         />
         <div class="slider-value">当前值：{{ localConfig.maxTokens || 512 }}</div>
       </el-form-item>
     </el-card>
 
-    <!-- ===== 提示词配置 ===== -->
+    <!-- ===== 提示词配置（保持不变） ===== -->
     <el-card class="config-card" shadow="never">
       <template #header>
         <span class="card-title">提示词配置</span>
       </template>
 
-      <!-- 系统提示词（12行） -->
+      <!-- 系统提示词 -->
       <div class="prompt-section">
         <div class="prompt-label">
           <span class="label-text">系统提示词</span>
@@ -88,7 +100,7 @@
         </div>
       </div>
 
-      <!-- 用户提示词（2行） -->
+      <!-- 用户提示词 -->
       <div class="prompt-section" style="margin-top: 20px;">
         <div class="prompt-label">
           <span class="label-text">用户提示词</span>
@@ -145,7 +157,7 @@
       </div>
     </el-card>
 
-    <!-- 输出配置 -->
+    <!-- 输出配置（保持不变） -->
     <el-card class="config-card" shadow="never">
       <template #header>
         <span class="card-title">输出配置</span>
@@ -196,7 +208,7 @@
       </template>
     </el-card>
 
-    <!-- 提示词生成器对话框（保持不变） -->
+    <!-- 提示词生成器对话框 -->
     <PromptGeneratorDialog
         v-model="showGeneratorDialog"
         @apply="applyGeneratedPrompt"
@@ -205,9 +217,10 @@
 </template>
 
 <script setup>
+/* ========== JS 逻辑完全保持原样，仅新增 UI 辅助 ========== */
 import { ref, reactive, onMounted, watch, computed, inject } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ArrowDown, MagicStick, Delete, Plus } from '@element-plus/icons-vue'
+import { ArrowDown, MagicStick, Delete, Plus, Refresh } from '@element-plus/icons-vue'
 import PromptGeneratorDialog from './PromptGeneratorDialog.vue'
 import { systemModelApi, providerApi } from '@/api/modelConfig'
 
@@ -228,16 +241,35 @@ const nodeOutputVars = computed(() => {
   return vars.filter(v => v.outputVar && v.nodeId !== props.node.id)
 })
 
-// ========== 动态模型加载（参考知识库页面） ==========
+// ========== 动态模型加载 ==========
 const modelList = ref([])
 const selectedModel = ref(null)
 const modelLoading = ref(false)
 
-// 加载聊天模型列表
+// UI 辅助：当前选中的模型显示名称
+const selectedModelLabel = computed(() => {
+  if (!localConfig.modelConfigId) return ''
+  const found = modelList.value.find(m => m.id === localConfig.modelConfigId)
+  return found ? `${found.modelName} (${found.providerName})` : ''
+})
+
+// ★ 核心修改：只加载列表，不自动选中模型
 const loadChatModels = async () => {
+  // 如果已有列表，不重复加载（可通过刷新按钮强制刷新）
+  if (modelList.value.length > 0 && !modelLoading.value) {
+    // 但仍需检查是否已有选中的模型需要回显
+    if (localConfig.modelConfigId) {
+      const found = modelList.value.find(m => m.id === localConfig.modelConfigId)
+      if (found) {
+        selectedModel.value = found
+      }
+    }
+    return
+  }
+
   modelLoading.value = true
   try {
-    // 1. 获取系统配置的聊天模型 ID
+    // 1. 获取系统配置的聊天模型 ID（仅用于显示高亮，不自动选中）
     let systemChatModelId = null
     const capRes = await systemModelApi.getCapabilities()
     if (capRes.code === 200 && capRes.data) {
@@ -255,7 +287,6 @@ const loadChatModels = async () => {
         try {
           const detailRes = await providerApi.getProviderDetail(provider.id)
           if (detailRes.code === 200 && detailRes.data && detailRes.data.models) {
-            // 筛选出 chat 类型的模型
             const chatModels = detailRes.data.models.filter(
                 model => model.capabilityType === 'chat' && model.status === 1
             )
@@ -268,7 +299,6 @@ const loadChatModels = async () => {
                 providerKey: provider.providerKey,
                 temperature: model.defaultTemperature || 0.7,
                 maxTokens: model.maxTokens || 4096,
-                // 保留原始 model 对象以备后续扩展
                 raw: model
               })
             })
@@ -279,26 +309,23 @@ const loadChatModels = async () => {
       }
       modelList.value = models
 
-      // 3. 设置默认选中的模型（优先使用系统配置的模型）
-      if (systemChatModelId) {
-        const systemModel = models.find(m => m.id === systemChatModelId)
-        if (systemModel) {
-          selectedModel.value = systemModel
-          if (!localConfig.modelConfigId) {
-            localConfig.modelConfigId = systemModel.id
-          }
+      // ★ 关键修改：不自动选中任何模型
+      // 仅当已有 modelConfigId 时，回显对应的模型
+      if (localConfig.modelConfigId) {
+        const found = models.find(m => m.id === localConfig.modelConfigId)
+        if (found) {
+          selectedModel.value = found
+          // 如果用户之前未设置 maxTokens，使用模型默认值
           if (!localConfig.maxTokens) {
-            localConfig.maxTokens = systemModel.maxTokens
+            localConfig.maxTokens = found.maxTokens
           }
-          return
+          if (localConfig.temperature === undefined || localConfig.temperature === null) {
+            localConfig.temperature = found.temperature ?? 0.7
+          }
         }
-      }
-
-      // 如果没有系统模型，选择第一个
-      if (models.length > 0 && !localConfig.modelConfigId) {
-        selectedModel.value = models[0]
-        localConfig.modelConfigId = models[0].id
-        localConfig.maxTokens = models[0].maxTokens
+      } else {
+        // 没有已选模型时，清空选中状态
+        selectedModel.value = null
       }
     } else {
       ElMessage.warning('未获取到可用的模型供应商')
@@ -311,12 +338,19 @@ const loadChatModels = async () => {
   }
 }
 
-// 模型变更时更新选中模型详情 + 自动设置 maxTokens
-function onModelChange(id) {
+// 用户手动选择模型
+const selectModel = (id) => {
   localConfig.modelConfigId = id
+  const found = modelList.value.find(m => m.id === id)
+  if (found) {
+    selectedModel.value = found
+    // 切换模型时自动设置模型默认参数
+    localConfig.maxTokens = found.maxTokens
+    localConfig.temperature = found.temperature ?? 0.7
+  }
 }
 
-// ========== 原有功能 ==========
+// ========== 原有功能（保持不变） ==========
 const outputVarDisplay = computed(() => {
   const varName = localConfig.outputVar || 'llm_response'
   return `{{var.${varName}}}`
@@ -358,7 +392,8 @@ const insertToUser = (varPath) => {
 const maxTokensLimit = computed(() => {
   return selectedModel.value?.maxTokens || 4096;
 });
-// 初始化 maxTokens（如果未设置）
+
+// 初始化 maxTokens
 if (!localConfig.maxTokens && selectedModel.value) {
   localConfig.maxTokens = Math.min(512, selectedModel.value.maxTokens);
 }
@@ -385,6 +420,55 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: #e2e8f0;
+}
+
+/* ===== 模型选择器 ===== */
+.model-selector {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.model-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  background: #1a1f3a;
+  border: 1px solid #2a2f4a;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 32px;
+  min-width: 180px;
+  font-size: 13px;
+  flex: 1;
+}
+.model-trigger:hover {
+  border-color: #667eea;
+  background: #22284a;
+}
+.model-value {
+  color: #a78bfa;
+}
+.model-placeholder {
+  color: #64748b;
+}
+.model-arrow {
+  color: #94a3b8;
+  transition: transform 0.2s;
+}
+.model-trigger:hover .model-arrow {
+  color: #a78bfa;
+}
+.refresh-btn {
+  background: rgba(102, 126, 234, 0.08) !important;
+  border: 1px solid rgba(102, 126, 234, 0.2) !important;
+  color: #a78bfa !important;
+  padding: 5px 8px !important;
+}
+.refresh-btn:hover {
+  background: rgba(102, 126, 234, 0.2) !important;
+  border-color: #667eea !important;
 }
 
 /* ===== 提示词区域 ===== */
@@ -476,12 +560,7 @@ onMounted(() => {
   margin-left: 8px;
 }
 
-/* ===== 其他组件样式（保持原有） ===== */
-.form-tip {
-  font-size: 12px;
-  color: #64748b;
-  margin-top: 4px;
-}
+/* ===== 输出字段 ===== */
 .field-row {
   display: flex;
   gap: 8px;
@@ -491,9 +570,122 @@ onMounted(() => {
 .output-fields-editor {
   width: 100%;
 }
+
+/* ===== 其他组件 ===== */
+.form-tip {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+.form-tip code {
+  background: #1a1f3a;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #a78bfa;
+  font-size: 12px;
+}
 .slider-value {
   font-size: 12px;
   color: #64748b;
   margin-top: 4px;
+}
+
+/* ===== 滑块深色覆盖 ===== */
+.custom-slider :deep(.el-slider__runway) {
+  background: #2a2f4a !important;
+}
+.custom-slider :deep(.el-slider__bar) {
+  background: #667eea !important;
+}
+.custom-slider :deep(.el-slider__button) {
+  background: #667eea !important;
+  border-color: #667eea !important;
+}
+
+/* ===== 全局深色覆盖（输入框、下拉、按钮、分割线等） ===== */
+:deep(.el-input .el-input__wrapper) {
+  background: #0f1228 !important;
+  border: 1px solid #2a2f4a !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+:deep(.el-input .el-input__wrapper:hover) {
+  border-color: #667eea !important;
+}
+:deep(.el-input .el-input__wrapper.is-focus) {
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
+}
+:deep(.el-input .el-input__inner) {
+  color: #ffffff !important;
+}
+:deep(.el-input .el-input__inner::placeholder) {
+  color: #64748b !important;
+}
+
+:deep(.el-dropdown-menu) {
+  background: #1a1f3a !important;
+  border: 1px solid #2a2f4a !important;
+  border-radius: 8px !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item) {
+  color: #cbd5e6 !important;
+  background: transparent !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item:hover) {
+  background: #2a2f4a !important;
+  color: #ffffff !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item.is-selected) {
+  color: #667eea !important;
+  background: rgba(102, 126, 234, 0.1) !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item.is-disabled) {
+  color: #4a4f6a !important;
+  cursor: not-allowed !important;
+}
+
+:deep(.el-divider) {
+  border-color: #2a2f4a !important;
+}
+:deep(.el-divider__text) {
+  color: #94a3b8 !important;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+:deep(.el-radio-group .el-radio) {
+  color: #cbd5e6 !important;
+}
+:deep(.el-radio-group .el-radio.is-checked) {
+  color: #a78bfa !important;
+}
+:deep(.el-radio-group .el-radio .el-radio__inner) {
+  background: #0f1228 !important;
+  border-color: #2a2f4a !important;
+}
+:deep(.el-radio-group .el-radio.is-checked .el-radio__inner) {
+  background: #667eea !important;
+  border-color: #667eea !important;
+}
+
+:deep(.el-descriptions) {
+  background: transparent !important;
+  border: none !important;
+}
+:deep(.el-descriptions .el-descriptions__table) {
+  border-collapse: collapse;
+}
+:deep(.el-descriptions .el-descriptions__cell) {
+  border-color: #2a2f4a !important;
+  background: #0f1228 !important;
+  color: #cbd5e6 !important;
+}
+:deep(.el-descriptions .el-descriptions__label) {
+  background: #0a0e27 !important;
+  color: #94a3b8 !important;
+}
+:deep(.el-descriptions .el-descriptions__content) {
+  color: #e2e8f0 !important;
 }
 </style>

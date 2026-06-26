@@ -19,8 +19,7 @@ public class WordToMarkdownParser {
     // 缓存：需要忽略的样式
     private Set<String> ignoreStyles = new HashSet<>();
 
-    // 样式层级顺序（按出现顺序）
-    private List<String> styleHierarchy = new ArrayList<>();
+    
 
     /**
      * 解析Word文档 - 修复版
@@ -179,20 +178,6 @@ public class WordToMarkdownParser {
         } catch (Exception e) {}
 
         return null;
-    }
-
-    /**
-     * 判断是否为粗体短文本（标题特征）
-     */
-    private boolean isBoldAndShort(XWPFParagraph paragraph, String text) {
-        if (text.length() > 50) return false;
-
-        List<XWPFRun> runs = paragraph.getRuns();
-        if (runs != null && !runs.isEmpty()) {
-            XWPFRun firstRun = runs.get(0);
-            return firstRun.isBold();
-        }
-        return false;
     }
 
     /**
@@ -529,210 +514,10 @@ public class WordToMarkdownParser {
         }
     }
 
-    /**
-     * 样式信息统计
-     */
-    // 内部类：样式统计信息
     private static class StyleInfo {
         int count = 0;
         int chapterPatternCount = 0;
         int numberedPatternCount = 0;
         int shortTextCount = 0;
-        int boldShortCount = 0;
     }
-
-    /**
-     * 判断是否为标题样式
-     */
-    private boolean isHeadingStyle(String styleId, StyleInfo info, String firstText) {
-        // 1. 标准Heading样式
-        if (styleId != null && styleId.matches("(?i)heading\\s*\\d+")) {
-            return true;
-        }
-        if (styleId != null && styleId.matches("(?i)标题\\s*\\d+")) {
-            return true;
-        }
-
-        // 2. 纯数字样式(2,3,4,5,6,7,8) — 您文档中的标题样式
-        if (styleId != null && styleId.matches("^\\d+$")) {
-            int num = Integer.parseInt(styleId);
-            if (num >= 2 && num <= 9) {
-                // 放宽条件：只要段落数合理，就认为是标题
-                if (info.count >= 1) {
-                    return true;
-                }
-            }
-        }
-
-        // 3. 首次文本匹配第X章模式
-        if (firstText != null && firstText.matches("^第\\s*[一二三四五六七八九十\\d]+\\s*章.*")) {
-            return true;
-        }
-
-        // 4. 样式名看起来像标题
-        if (firstText != null && firstText.length() < 30 && !firstText.contains("。") && !firstText.contains("，")) {
-            // 短文本且不是完整句子，可能是标题
-            if (info.count >= 1 && info.count <= 30) { // 标题样式通常不会太多段落
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * 从样式名中提取数字
-     */
-    private int extractStyleNumber(String styleId) {
-        if (styleId == null) return 99;
-        try {
-            return Integer.parseInt(styleId.replaceAll("[^0-9]", ""));
-        } catch (NumberFormatException e) {
-            return 99;
-        }
-    }
-
-    /**
-     * 检查是否像标题
-     */
-    private boolean isTitleLike(String text) {
-        if (text == null || text.isEmpty()) return false;
-        // 短文本，且不以句号、逗号结尾
-        return text.length() < 40 &&
-                !text.endsWith("。") &&
-                !text.endsWith("，") &&
-                !text.endsWith("；");
-    }
-
-    /**
-     * 转换为Markdown
-     */
-    private String convertToMarkdown(XWPFDocument document) {
-        StringBuilder md = new StringBuilder();
-
-        List<IBodyElement> elements = document.getBodyElements();
-        for (IBodyElement element : elements) {
-            if (element instanceof XWPFParagraph) {
-                XWPFParagraph paragraph = (XWPFParagraph) element;
-                String line = convertParagraphToMarkdown(paragraph);
-                if (!line.isEmpty()) {
-                    md.append(line).append("\n\n");
-                }
-            } else if (element instanceof XWPFTable) {
-                md.append("[表格]\n\n");
-            }
-        }
-
-        return md.toString();
-    }
-
-    /**
-     * 段落转Markdown
-     */
-    private String convertParagraphToMarkdown(XWPFParagraph paragraph) {
-        String text = paragraph.getText();
-        if (text == null || text.trim().isEmpty()) {
-            return "";
-        }
-
-        text = text.trim();
-        String styleId = paragraph.getStyle();
-
-        // 使用分析阶段建立的映射
-        if (styleId != null && styleLevelMap.containsKey(styleId)) {
-            int level = styleLevelMap.get(styleId);
-            String prefix = String.join("", Collections.nCopies(level, "#"));
-            log.debug("标题: 样式={}, 级别={}, 文本={}", styleId, level, text.substring(0, Math.min(30, text.length())));
-            return prefix + " " + text;
-        }
-
-        // 文本模式匹配（作为备用）
-        if (text.matches("^第\\s*[一二三四五六七八九十\\d]+\\s*[章节条款]")) {
-            return "# " + text;
-        }
-
-        // 正文
-        return text;
-    }
-
-    /**
-     * 清洗Markdown标题
-     */
-    private String cleanMarkdownHeadings(String markdown) {
-        String[] lines = markdown.split("\n");
-        List<String> cleanedLines = new ArrayList<>();
-        int lastHeadingLevel = 0;
-
-        for (String line : lines) {
-            if (line.startsWith("#")) {
-                int level = 0;
-                while (level < line.length() && line.charAt(level) == '#') {
-                    level++;
-                }
-
-                String titleText = line.substring(level).trim();
-
-                // "第X章"强制设为1级
-                if (titleText.matches("^第\\s*[一二三四五六七八九十\\d]+\\s*章.*")) {
-                    level = 1;
-                }
-
-                // 确保层级不会跳跃太大（最多+1）
-                if (level > lastHeadingLevel + 1) {
-                    level = lastHeadingLevel + 1;
-                }
-
-                lastHeadingLevel = level;
-                cleanedLines.add(String.join("", Collections.nCopies(level, "#")) + " " + titleText);
-            } else {
-                cleanedLines.add(line);
-            }
-        }
-
-        return String.join("\n", cleanedLines);
-    }
-
-    /**
-     * 解析Markdown结构
-     */
-    private List<DocumentSection> parseMarkdownStructure(String markdown) {
-        List<DocumentSection> sections = new ArrayList<>();
-        Map<Integer, Integer> counters = new TreeMap<>();
-
-        String[] lines = markdown.split("\n");
-
-        for (String line : lines) {
-            if (line.startsWith("#")) {
-                int level = 0;
-                while (level < line.length() && line.charAt(level) == '#') {
-                    level++;
-                }
-
-                String title = line.substring(level).trim();
-
-                // 生成编号
-                counters.merge(level, 1, Integer::sum);
-                int finalLevel = level;
-                counters.keySet().removeIf(l -> l > finalLevel);
-
-                StringBuilder number = new StringBuilder();
-                for (int l = 1; l <= level; l++) {
-                    if (number.length() > 0) number.append(".");
-                    number.append(counters.getOrDefault(l, 1));
-                }
-
-                DocumentSection section = new DocumentSection();
-                section.setLevel(level);
-                section.setSectionNumber(number.toString());
-                section.setTitle(title);
-                section.setFullTitle(number + " " + title);
-                sections.add(section);
-            }
-        }
-
-        return sections;
-    }
-
-
-
 }

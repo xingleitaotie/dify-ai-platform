@@ -5,12 +5,14 @@ import router from '@/router'
 // API 基础路径
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
-console.log('[API] 环境:', import.meta.env.MODE)
-console.log('[API] API 基础路径:', API_BASE_URL)
+if (import.meta.env.MODE !== 'production') {
+    console.log('[API] 环境:', import.meta.env.MODE)
+    console.log('[API] API 基础路径:', API_BASE_URL)
+}
 
 const request = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 600000
+    timeout: 30000
 })
 
 // 请求拦截器
@@ -21,11 +23,15 @@ request.interceptors.request.use(
             config.headers['token'] = token
             config.headers['Authorization'] = `Bearer ${token}`
         }
-        console.log(`[API Request] ${config.method.toUpperCase()} ${config.url}`)
+        if (import.meta.env.MODE !== 'production') {
+            console.log(`[API Request] ${config.method.toUpperCase()} ${config.url}`)
+        }
         return config
     },
     error => {
-        console.error('[API Request Error]', error)
+        if (import.meta.env.MODE !== 'production') {
+            console.error('[API Request Error]', error)
+        }
         return Promise.reject(error)
     }
 )
@@ -34,7 +40,9 @@ request.interceptors.request.use(
 request.interceptors.response.use(
     response => {
         const res = response.data
-        console.log(`[API Response] ${response.config.url}`, res)
+        if (import.meta.env.MODE !== 'production') {
+            console.log(`[API Response] ${response.config.url}`, res)
+        }
 
         if (response.status === 504) {
             ElMessage.error('请求超时，请稍后重试')

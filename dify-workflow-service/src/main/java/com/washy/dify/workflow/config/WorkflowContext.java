@@ -23,6 +23,9 @@ public class WorkflowContext {
     // 新增：上一个节点的输出（给下一个节点用）
     private Object lastNodeOutput;
 
+    // ★ 新增：条件节点执行后的分支ID（如 "IF_0"、"ELSE"）
+    private String lastBranch;
+
     public Object getLastNodeOutput() {
         return lastNodeOutput;
     }
@@ -67,6 +70,7 @@ public class WorkflowContext {
         map.put("inputs", inputs);
         map.put("variables", variables);
         map.put("sessionId", sessionId);
+        map.put("lastBranch", lastBranch);  // ★ 新增
         return map;
     }
 }

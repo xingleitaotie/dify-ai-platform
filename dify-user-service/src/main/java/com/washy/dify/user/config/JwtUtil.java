@@ -5,46 +5,76 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.yaml.snakeyaml.Yaml;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.security.Key;
 import java.util.Date;
 import java.util.Map;
 
 /**
- * 独立版 JWT 工具
- * 每个项目自己一份，读取自己的 application.yml
- * 不依赖 Spring / 不依赖 common / 纯静态
+ * JWT 工具类
+ * 必须从配置文件读取密钥，不允许使用默认密钥
  */
 public final class JwtUtil {
 
     private static String SECRET;
     private static long EXPIRE_MILLIS;
+    private static Key CACHED_KEY;
 
     static {
+        InputStream input = null;
         try {
             Yaml yaml = new Yaml();
-            InputStream input = JwtUtil.class.getClassLoader().getResourceAsStream("application.yml");
+            input = JwtUtil.class.getClassLoader().getResourceAsStream("application.yml");
+            if (input == null) {
+                throw new RuntimeException("JWT配置文件未找到: application.yml");
+            }
+            
             Map<String, Object> yamlMap = yaml.load(input);
             Map<String, Object> jwt = (Map<String, Object>) yamlMap.get("jwt");
+            
+            if (jwt == null) {
+                throw new RuntimeException("JWT配置缺失: 请在application.yml中配置jwt节点");
+            }
 
             SECRET = (String) jwt.get("secret");
-            long expireSec = Long.parseLong(jwt.get("expire").toString());
+            if (SECRET == null || SECRET.trim().isEmpty()) {
+                throw new RuntimeException("JWT密钥未配置: jwt.secret不能为空");
+            }
+            
+            if (SECRET.length() < 32) {
+                throw new RuntimeException("JWT密钥长度不足: 至少需要32个字符");
+            }
+
+            String expireStr = String.valueOf(jwt.get("expire"));
+            long expireSec = Long.parseLong(expireStr);
             EXPIRE_MILLIS = expireSec * 1000;
+            
+            CACHED_KEY = generateKey(SECRET);
+            
+        } catch (NumberFormatException e) {
+            throw new RuntimeException("JWT过期时间配置错误: jwt.expire必须是数字", e);
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            // 默认安全密钥（64位，满足HS512）
-            SECRET = "aB3kT9sP7dF2gH5jK8lZxQ4wE6rT7yU1iO0pS9dF3gH5jK7lL8kF9sD2sA1fG7hJ9kL3z";
-            EXPIRE_MILLIS = 86400 * 1000;
+            throw new RuntimeException("加载JWT配置失败", e);
+        } finally {
+            if (input != null) {
+                try {
+                    input.close();
+                } catch (IOException e) {
+                    // ignore
+                }
+            }
         }
     }
 
-    private static Key getKey() {
-        // 自动补齐到 64 位，永不报错密钥长度不足
-        String key = SECRET;
-        while (key.length() < 64) {
-            key += "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static Key generateKey(String secret) {
+        byte[] keyBytes = secret.getBytes();
+        if (keyBytes.length < 32) {
+            throw new IllegalArgumentException("JWT密钥至少需要32字节");
         }
-        key = key.substring(0, 64);
-        return Keys.hmacShaKeyFor(key.getBytes());
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
     private JwtUtil() {}
@@ -55,19 +85,22 @@ public final class JwtUtil {
                 .claim("username", username)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRE_MILLIS))
-                .signWith(getKey())
+                .signWith(CACHED_KEY)
                 .compact();
     }
 
     public static Claims parseToken(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(getKey())
+                .setSigningKey(CACHED_KEY)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
 
     public static boolean validateToken(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            return false;
+        }
         try {
             parseToken(token);
             return true;
@@ -77,10 +110,16 @@ public final class JwtUtil {
     }
 
     public static Long getUserId(String token) {
-        return parseToken(token).get("userId", Long.class);
+        Claims claims = parseToken(token);
+        return claims != null ? claims.get("userId", Long.class) : null;
     }
 
     public static String getUsername(String token) {
-        return parseToken(token).get("username", String.class);
+        Claims claims = parseToken(token);
+        return claims != null ? claims.get("username", String.class) : null;
+    }
+
+    public static long getExpireMillis() {
+        return EXPIRE_MILLIS;
     }
 }

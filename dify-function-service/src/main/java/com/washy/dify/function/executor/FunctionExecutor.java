@@ -8,7 +8,7 @@ import com.washy.dify.common.entity.function.FunctionCallRequest;
 import com.washy.dify.common.entity.function.FunctionConstant;
 import com.washy.dify.common.entity.function.FunctionExecuteResult;
 import com.washy.dify.common.entity.function.FunctionInfo;
-import com.washy.dify.common.exception.GlobalExceptionHandler;
+import com.washy.dify.common.exception.AppException;
 import com.washy.dify.function.exception.FunctionException;
 import com.washy.dify.function.service.FunctionRegistry;
 import lombok.RequiredArgsConstructor;
@@ -77,25 +77,6 @@ public class FunctionExecutor {
         }
 
         return result;
-    }
-
-    /**
-     * 解析参数
-     */
-    private Object[] parseParams(Method method, Object paramMap) {
-        Class<?>[] paramTypes = method.getParameterTypes();
-        Object[] params = new Object[paramTypes.length];
-
-        try {
-            // 统一转换Map参数
-            for (int i = 0; i < paramTypes.length; i++) {
-                params[i] = Convert.convert(paramTypes[i], paramMap);
-            }
-        } catch (Exception e) {
-            throw new GlobalExceptionHandler(FunctionConstant.PARAM_ERROR + e.getMessage());
-        }
-
-        return params;
     }
 
     /**

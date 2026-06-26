@@ -60,11 +60,23 @@ public class FunctionCallingPromptTemplate implements PromptTemplate {
         return "Function Calling 模板，用于将自然语言转换为函数调用";
     }
     
-    @SuppressWarnings("unchecked")
     @Override
     public String render(Map<String, Object> context) {
-        String question = (String) context.getOrDefault("question", "");
-        List<Map<String, Object>> tools = (List<Map<String, Object>>) context.getOrDefault("tools", new ArrayList<>());
+        String question = getString(context, "question", "");
+        Object toolsObj = context.get("tools");
+        List<Map<String, Object>> tools = new ArrayList<>();
+        
+        if (toolsObj instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<?> toolsList = (List<?>) toolsObj;
+            for (Object item : toolsList) {
+                if (item instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> tool = (Map<String, Object>) item;
+                    tools.add(tool);
+                }
+            }
+        }
         
         String toolsStr = tools.stream()
             .map(this::formatTool)
@@ -73,6 +85,11 @@ public class FunctionCallingPromptTemplate implements PromptTemplate {
         return TEMPLATE
             .replace("${tools}", toolsStr)
             .replace("${question}", question);
+    }
+    
+    private String getString(Map<String, Object> context, String key, String defaultValue) {
+        Object value = context.get(key);
+        return value != null ? String.valueOf(value) : defaultValue;
     }
     
     private String formatTool(Map<String, Object> tool) {

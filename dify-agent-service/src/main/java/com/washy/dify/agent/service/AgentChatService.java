@@ -8,7 +8,7 @@ import com.washy.dify.agent.util.AgentMessageBuilder;
 import com.washy.dify.common.entity.function.FunctionCallRequest;
 import com.washy.dify.common.entity.llm.ChatMessage;
 import com.washy.dify.common.entity.llm.ChatRequestDTO;
-import com.washy.dify.common.exception.GlobalExceptionHandler;
+import com.washy.dify.common.exception.AppException;
 import com.washy.dify.common.result.Result;
 import com.washy.dify.feign.client.FunctionFeignClient;
 import com.washy.dify.feign.client.LlmFeignClient;
@@ -130,7 +130,7 @@ public class AgentChatService {
             request.setParameters(params);
             return request;
         } catch (Exception e) {
-            throw new GlobalExceptionHandler("解析函数调用失败：" + e.getMessage());
+            throw new AppException("解析函数调用失败：" + e.getMessage());
         }
     }
 

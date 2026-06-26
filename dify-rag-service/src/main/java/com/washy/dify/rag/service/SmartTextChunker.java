@@ -88,10 +88,6 @@ public class SmartTextChunker {
             ? (double) text.length() / paragraphCount 
             : text.length();
         
-        // 检测句子密度
-        long sentenceCount = text.split("[。！？；]").length;
-        double sentenceDensity = (double) sentenceCount / text.length() * 1000;
-        
         // 判断
         analysis.isHighlyStructured = headingCount >= 3 && avgParagraphLength < 500;
         analysis.isSemiStructured = headingCount >= 1 || avgParagraphLength < 1000;

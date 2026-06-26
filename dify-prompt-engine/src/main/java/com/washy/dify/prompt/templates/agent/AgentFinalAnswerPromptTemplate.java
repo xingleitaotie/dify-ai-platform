@@ -51,14 +51,26 @@ public class AgentFinalAnswerPromptTemplate implements PromptTemplate {
         return "Agent 最终答案生成模板，整合 RAG 和 FC 结果";
     }
     
-    @SuppressWarnings("unchecked")
     @Override
     public String render(Map<String, Object> context) {
-        String question = (String) context.getOrDefault("question", "");
-        String systemPrompt = (String) context.getOrDefault("systemPrompt", "你是一个智能助手");
-        List<Map<String, String>> history = (List<Map<String, String>>) context.getOrDefault("history", new ArrayList<>());
-        String ragResult = (String) context.getOrDefault("ragResult", "无");
-        String functionResult = (String) context.getOrDefault("functionResult", "无");
+        String question = getString(context, "question", "");
+        String systemPrompt = getString(context, "systemPrompt", "你是一个智能助手");
+        String ragResult = getString(context, "ragResult", "无");
+        String functionResult = getString(context, "functionResult", "无");
+        
+        Object historyObj = context.get("history");
+        List<Map<String, String>> history = new ArrayList<>();
+        if (historyObj instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<?> historyList = (List<?>) historyObj;
+            for (Object item : historyList) {
+                if (item instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, String> msg = (Map<String, String>) item;
+                    history.add(msg);
+                }
+            }
+        }
         
         String historyStr = history.stream()
             .map(msg -> msg.get("role") + ": " + msg.get("content"))
@@ -70,6 +82,11 @@ public class AgentFinalAnswerPromptTemplate implements PromptTemplate {
             .replace("${ragResult}", ragResult)
             .replace("${functionResult}", functionResult)
             .replace("${question}", question);
+    }
+    
+    private String getString(Map<String, Object> context, String key, String defaultValue) {
+        Object value = context.get(key);
+        return value != null ? String.valueOf(value) : defaultValue;
     }
     
     @Override

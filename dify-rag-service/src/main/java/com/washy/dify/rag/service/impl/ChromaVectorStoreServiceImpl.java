@@ -1,6 +1,7 @@
 package com.washy.dify.rag.service.impl;
 
 import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.TypeReference;
 import com.washy.dify.common.constants.SystemConstants;
 import com.washy.dify.rag.client.ChromaApiClient;
 import com.washy.dify.rag.client.OllamaEmbeddingClient;
@@ -101,6 +102,9 @@ public class ChromaVectorStoreServiceImpl implements VectorStoreService {
                 // 2. 生成 embedding（单个生成，避免并发）
                 List<Float> embedding;
                 try {
+                    if (embeddingClient == null) {
+                        throw new IllegalStateException("Embedding 客户端未初始化");
+                    }
                     embedding = embeddingClient.getEmbedding(text);
                 } catch (Exception e) {
                     log.error("生成 embedding 失败，跳过当前块: chunkId={}, error={}",
@@ -148,6 +152,10 @@ public class ChromaVectorStoreServiceImpl implements VectorStoreService {
     public List<Map<String, Object>> search(String kbName, String query, int topK) {
 
         try {
+            if (embeddingClient == null) {
+                log.error("Embedding 客户端未初始化，无法执行搜索");
+                return new ArrayList<>();
+            }
             List<Float> queryEmbedding = embeddingClient.getEmbedding(query);
             JSONObject result = chromaApiClient.queryEmbedding(kbName, queryEmbedding, topK);
             return parseSearchResult(result);
@@ -279,35 +287,29 @@ public class ChromaVectorStoreServiceImpl implements VectorStoreService {
         if (result == null) return results;
 
         try {
-            Object distancesObj = result.get("distances");
-            Object documentsObj = result.get("documents");
-            Object metadatasObj = result.get("metadatas");
+            // 安全解析嵌套列表
+            List<List<Double>> distancesOuter = result.getObject("distances", new TypeReference<List<List<Double>>>() {});
+            List<List<String>> documentsOuter = result.getObject("documents", new TypeReference<List<List<String>>>() {});
+            List<List<Map<String, Object>>> metadatasOuter = result.getObject("metadatas", new TypeReference<List<List<Map<String, Object>>>>() {});
 
-            if (distancesObj == null) return results;
+            if (distancesOuter == null || distancesOuter.isEmpty()) return results;
 
-            List<?> distancesOuter = (List<?>) distancesObj;
-            if (distancesOuter.isEmpty()) return results;
+            List<Double> distances = distancesOuter.get(0);
+            List<String> documents = (documentsOuter != null && !documentsOuter.isEmpty())
+                    ? documentsOuter.get(0) : new ArrayList<>();
+            List<Map<String, Object>> metadatas = (metadatasOuter != null && !metadatasOuter.isEmpty())
+                    ? metadatasOuter.get(0) : new ArrayList<>();
 
-            List<?> distances = (List<?>) distancesOuter.get(0);
-            List<?> documents = (documentsObj instanceof List && !((List<?>) documentsObj).isEmpty())
-                    ? (List<?>) ((List<?>) documentsObj).get(0) : new ArrayList<>();
-            List<?> metadatas = (metadatasObj instanceof List && !((List<?>) metadatasObj).isEmpty())
-                    ? (List<?>) ((List<?>) metadatasObj).get(0) : new ArrayList<>();
-
-            for (int i = 0; i < distances.size(); i++) {
+            int size = Math.min(Math.min(distances.size(), documents.size()), metadatas.size());
+            for (int i = 0; i < size; i++) {
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("rank", i + 1);
 
-                Object distObj = distances.get(i);
-                double distance = 0.0;
-                if (distObj instanceof Number) {
-                    distance = ((Number) distObj).doubleValue();
-                }
-
+                double distance = distances.get(i);
                 item.put("score", String.format("%.4f", 1.0 - distance));
                 item.put("distance", String.format("%.4f", distance));
-                item.put("document", i < documents.size() ? documents.get(i) : "");
-                item.put("metadata", i < metadatas.size() ? metadatas.get(i) : new HashMap<>());
+                item.put("document", documents.get(i));
+                item.put("metadata", metadatas.get(i));
                 results.add(item);
             }
         } catch (Exception e) {
@@ -347,6 +349,10 @@ public class ChromaVectorStoreServiceImpl implements VectorStoreService {
         try {
             log.info("📝 存储提示词模板到向量库: templateId={}, name={}", templateId, templateName);
 
+            if (embeddingClient == null) {
+                throw new IllegalStateException("Embedding 客户端未初始化");
+            }
+
             // 1. 构建用于向量化的完整文本
             String vectorText = buildPromptTemplateVectorText(templateName, content, metadata);
 
@@ -380,6 +386,11 @@ public class ChromaVectorStoreServiceImpl implements VectorStoreService {
         }
 
         log.info("📦 批量存储提示词模板，数量: {}", templates.size());
+
+        if (embeddingClient == null) {
+            log.error("Embedding 客户端未初始化，无法批量存储");
+            return;
+        }
 
         List<String> ids = new ArrayList<>();
         List<List<Float>> embeddings = new ArrayList<>();
@@ -457,6 +468,11 @@ public class ChromaVectorStoreServiceImpl implements VectorStoreService {
     public List<Map<String, Object>> searchPromptTemplates(String query, int topK) {
         try {
             log.info("🔍 搜索提示词模板: query={}, topK={}", query, topK);
+
+            if (embeddingClient == null) {
+                log.error("Embedding 客户端未初始化，无法搜索");
+                return Collections.emptyList();
+            }
 
             // 1. 生成查询向量
             List<Float> queryEmbedding = embeddingClient.getEmbedding(query);
@@ -553,10 +569,10 @@ public class ChromaVectorStoreServiceImpl implements VectorStoreService {
         if (result == null) return results;
 
         try {
-            List<List<String>> idsOuter = (List<List<String>>) result.get("ids");
-            List<List<Double>> distancesOuter = (List<List<Double>>) result.get("distances");
-            List<List<Map<String, Object>>> metadatasOuter = (List<List<Map<String, Object>>>) result.get("metadatas");
-            List<List<String>> documentsOuter = (List<List<String>>) result.get("documents");
+            List<List<String>> idsOuter = result.getObject("ids", new TypeReference<List<List<String>>>() {});
+            List<List<Double>> distancesOuter = result.getObject("distances", new TypeReference<List<List<Double>>>() {});
+            List<List<Map<String, Object>>> metadatasOuter = result.getObject("metadatas", new TypeReference<List<List<Map<String, Object>>>>() {});
+            List<List<String>> documentsOuter = result.getObject("documents", new TypeReference<List<List<String>>>() {});
 
             if (idsOuter == null || idsOuter.isEmpty()) return results;
 

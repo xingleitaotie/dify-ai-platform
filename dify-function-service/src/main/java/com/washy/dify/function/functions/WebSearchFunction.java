@@ -98,8 +98,7 @@ public class WebSearchFunction {
             
         } catch (Exception e) {
             log.error("互联网搜索失败", e);
-            return String.format("{\"success\": false, \"error\": \"搜索失败：%s\", \"results\": []}", 
-                    e.getMessage().replace("\"", "\\\""));
+            return "{\"success\": false, \"error\": \"搜索服务暂不可用，请稍后重试\", \"results\": []}";
         }
     }
 

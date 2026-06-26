@@ -1,6 +1,5 @@
 package com.washy.dify.rag.service;
 
-import com.washy.dify.rag.client.OllamaEmbeddingClient;
 import com.washy.dify.rag.config.ChunkerConfig;
 import com.washy.dify.rag.domain.DocumentChunk;
 import com.washy.dify.rag.domain.DocumentSection;
@@ -12,27 +11,43 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+/**
+ * 智能文档分块服务
+ * <p>负责将文档章节内容分割成合适大小的文本块，以便后续向量化存储和检索。</p>
+ * <p>分块原则：</p>
+ * <ul>
+ *   <li>按章节分块，保持章节完整性</li>
+ *   <li>表格不能被分割，作为整体处理</li>
+ *   <li>过小的块合并到父章节，避免碎片化</li>
+ *   <li>不能跨父章节合并，保持文档结构</li>
+ * </ul>
+ */
 @Slf4j
 @Service
 public class SmartChunkerService {
 
-    // 在类的开头，修改config的声明
+    /**
+     * 分块配置（可选注入）
+     */
     @Autowired(required = false)
     private ChunkerConfig config;
     
-    @Autowired(required = false)
-    private OllamaEmbeddingClient ollamaService;
-
+    /**
+     * 块质量过滤器
+     */
     @Autowired
     private ChunkQualityFilter qualityFilter;
     
     /**
      * 智能分块主方法
-     * 原则：
-     * 1. 按章节分块
-     * 2. 表格不能被分割
-     * 3. 过小的块合并到父章节
-     * 4. 不能跨父章节合并
+     * <p>将文档章节内容分割成合适大小的文本块，并进行质量过滤。</p>
+     * 
+     * @param sections    文档章节列表
+     * @param documentId  文档ID
+     * @param documentName 文档名称
+     * @param imageMap    图片映射（图片占位符 -> 图片信息）
+     * @param tables      表格列表
+     * @return 分块结果列表
      */
     public List<DocumentChunk> chunkSections(List<DocumentSection> sections,
                                              String documentId,
@@ -102,6 +117,15 @@ public class SmartChunkerService {
     
     /**
      * 对单个章节内容进行分块
+     * <p>将章节内容按段落分割，若超过最大块大小则进行分段处理，保留重叠部分。</p>
+     * 
+     * @param section      章节信息
+     * @param content      章节内容
+     * @param documentId   文档ID
+     * @param documentName 文档名称
+     * @param imageMap     图片映射
+     * @param startIndex   块起始索引
+     * @return 分块结果列表
      */
     private List<DocumentChunk> chunkSectionContent(DocumentSection section,
                                                      SectionContent content,

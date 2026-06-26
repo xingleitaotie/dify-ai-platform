@@ -23,11 +23,13 @@ public class StartNodeExecutor implements NodeExecutor {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public Map<String, Object> execute(Map<String, Object> nodeInput, WorkflowContext context) {
-        Map<String, Object> config = (Map<String, Object>) nodeInput.get("config");
-        if (config == null) {
-            config = new HashMap<>();
+        Object configObj = nodeInput.get("config");
+        Map<String, Object> config = new HashMap<>();
+        if (configObj instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> configMap = (Map<String, Object>) configObj;
+            config.putAll(configMap);
         }
 
         Map<String, Object> workflowInputs = context.getInputs();
@@ -39,8 +41,11 @@ public class StartNodeExecutor implements NodeExecutor {
 
         // 2. 处理默认值（前端配置的默认值）
         //    ✅ 使用 resolver.resolveObject() 解析默认值（支持变量引用）
-        List<Map<String, Object>> inputVariables = (List<Map<String, Object>>) config.get("inputVariables");
-        if (inputVariables != null) {
+        Object inputVariablesObj = config.get("inputVariables");
+        if (inputVariablesObj instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> inputVariables = (List<Map<String, Object>>) inputVariablesObj;
+            
             for (Map<String, Object> varDef : inputVariables) {
                 String varName = (String) varDef.get("name");
                 Object defaultValue = varDef.get("defaultValue");

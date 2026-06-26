@@ -54,12 +54,21 @@ public class AgentDecisionPromptTemplate implements PromptTemplate {
         return "Agent 决策模板，决定是否需要 RAG 或 Function Calling";
     }
     
-    @SuppressWarnings("unchecked")
     @Override
     public String render(Map<String, Object> context) {
-        String question = (String) context.getOrDefault("question", "");
-        Boolean hasKnowledgeBase = (Boolean) context.getOrDefault("hasKnowledgeBase", false);
-        List<String> availableTools = (List<String>) context.getOrDefault("availableTools", new ArrayList<>());
+        String question = getString(context, "question", "");
+        Object hasKbObj = context.get("hasKnowledgeBase");
+        boolean hasKnowledgeBase = hasKbObj instanceof Boolean ? (Boolean) hasKbObj : false;
+        
+        Object toolsObj = context.get("availableTools");
+        List<String> availableTools = new ArrayList<>();
+        if (toolsObj instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<?> toolsList = (List<?>) toolsObj;
+            for (Object item : toolsList) {
+                availableTools.add(String.valueOf(item));
+            }
+        }
         
         String rules = buildRules(hasKnowledgeBase, availableTools);
         String toolsStr = availableTools.isEmpty() ? "无" : String.join(", ", availableTools);
@@ -68,6 +77,11 @@ public class AgentDecisionPromptTemplate implements PromptTemplate {
             .replace("${rules}", rules)
             .replace("${tools}", toolsStr)
             .replace("${question}", question);
+    }
+    
+    private String getString(Map<String, Object> context, String key, String defaultValue) {
+        Object value = context.get(key);
+        return value != null ? String.valueOf(value) : defaultValue;
     }
     
     private String buildRules(boolean hasKnowledgeBase, List<String> tools) {

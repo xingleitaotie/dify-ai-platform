@@ -29,7 +29,7 @@ export default defineConfig(({ command, mode }) => {
                     target: apiTarget,
                     changeOrigin: true,
                     rewrite: (path) => path,
-                    configure: (proxy, options) => {
+                    configure: mode !== 'production' ? (proxy, options) => {
                         proxy.on('error', (err, req, res) => {
                             console.log('proxy error', err);
                         });
@@ -39,7 +39,7 @@ export default defineConfig(({ command, mode }) => {
                         proxy.on('proxyRes', (proxyRes, req, res) => {
                             console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
                         });
-                    }
+                    } : undefined
                 }
             },
             // 热更新配置

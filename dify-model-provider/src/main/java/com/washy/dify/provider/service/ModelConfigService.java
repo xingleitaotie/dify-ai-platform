@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -45,11 +47,7 @@ public class ModelConfigService {
         
         List<ModelConfigEntity> models = modelConfigMapper.selectList(wrapper);
         
-        // 填充供应商信息
-        for (ModelConfigEntity model : models) {
-            ProviderEntity provider = providerMapper.selectById(model.getProviderId());
-            model.setProvider(provider);
-        }
+        fillProviderInfo(models);
         
         return models;
     }
@@ -65,13 +63,38 @@ public class ModelConfigService {
         
         List<ModelConfigEntity> models = modelConfigMapper.selectList(wrapper);
         
-        // 填充供应商信息
-        for (ModelConfigEntity model : models) {
-            ProviderEntity provider = providerMapper.selectById(model.getProviderId());
-            model.setProvider(provider);
-        }
+        fillProviderInfo(models);
         
         return models;
+    }
+
+    /**
+     * 批量填充供应商信息（优化N+1查询）
+     */
+    private void fillProviderInfo(List<ModelConfigEntity> models) {
+        if (models == null || models.isEmpty()) {
+            return;
+        }
+        
+        Set<Long> providerIds = models.stream()
+                .map(ModelConfigEntity::getProviderId)
+                .filter(id -> id != null)
+                .collect(java.util.stream.Collectors.toSet());
+        
+        if (providerIds.isEmpty()) {
+            return;
+        }
+        
+        LambdaQueryWrapper<ProviderEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(ProviderEntity::getId, providerIds);
+        List<ProviderEntity> providers = providerMapper.selectList(wrapper);
+        
+        Map<Long, ProviderEntity> providerMap = providers.stream()
+                .collect(java.util.stream.Collectors.toMap(ProviderEntity::getId, p -> p));
+        
+        for (ModelConfigEntity model : models) {
+            model.setProvider(providerMap.get(model.getProviderId()));
+        }
     }
 
     /**
@@ -213,8 +236,8 @@ public class ModelConfigService {
             }
 
         } catch (Exception e) {
-            log.error("模型测试失败: providerKey={}, modelKey={}, capabilityType={}, error={}",
-                    providerKey, modelKey, capabilityType, e.getMessage());
+            log.error("模型测试失败: providerKey={}, modelKey={}, capabilityType={}",
+                    providerKey, modelKey, capabilityType);
             return false;
         }
     }
@@ -247,22 +270,6 @@ public class ModelConfigService {
         List<String> documents = Arrays.asList("测试文档1", "测试文档2");
         List<RerankClient.RerankResult> results = client.rerank("测试查询", documents, 2);
         return results != null && !results.isEmpty();
-    }
-
-    /**
-     * 获取默认模型标识
-     */
-    private String getDefaultModelKey(String modelType) {
-        switch (modelType) {
-            case "openai": return "gpt-3.5-turbo";
-            case "ollama": return "qwen2.5:7b";
-            case "modelscope": return "Qwen/Qwen2.5-7B-Instruct";
-            case "aliyun": return "qwen-turbo";
-            case "baidu": return "ernie-3.5";
-            case "xfyun": return "generalv3";
-            case "zhipu": return "glm-4";
-            default: return "gpt-3.5-turbo";
-        }
     }
 
     /**

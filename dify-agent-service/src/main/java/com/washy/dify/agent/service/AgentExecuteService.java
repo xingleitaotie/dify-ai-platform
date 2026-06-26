@@ -3,7 +3,7 @@ package com.washy.dify.agent.service;
 import com.washy.dify.agent.domain.AgentToolBind;
 import com.washy.dify.common.entity.function.FunctionCallRequest;
 import com.washy.dify.common.entity.function.FunctionExecuteResult;
-import com.washy.dify.common.exception.GlobalExceptionHandler;
+import com.washy.dify.common.exception.AppException;
 import com.washy.dify.common.result.Result;
 import com.washy.dify.feign.client.FunctionFeignClient;
 import org.springframework.stereotype.Service;
@@ -49,7 +49,7 @@ public class AgentExecuteService {
             request.setParameters(params);
             return request;
         } catch (Exception e) {
-            throw new GlobalExceptionHandler("解析函数调用失败：" + e.getMessage());
+            throw new AppException("解析函数调用失败：" + e.getMessage());
         }
     }
 }

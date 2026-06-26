@@ -528,6 +528,10 @@ const selectNodeType = (type) => {
 
   // 连线中间插入
   if (isInsertOnEdge.value && edgeOriginSource.value && edgeOriginTarget.value) {
+    // ---- 新增：获取原边信息 ----
+    const originEdge = edges.value.find(e => e.id === activeEdgeId.value)
+    const originSourceHandle = originEdge?.sourceHandle || null
+    const originTargetHandle = originEdge?.targetHandle || null
     const newNode = {
       id: `node_${Date.now()}_${nodeIdCounter++}`,
       type: type,
@@ -537,12 +541,26 @@ const selectNodeType = (type) => {
         config: getDefaultConfig(type),
       },
     }
-    removeEdges([activeEdgeId.value])
+
+    removeEdges([activeEdgeId.value])  // 删除原边
     addNodes([newNode])
+
+    // ---- 创建两条新边，继承原边的 handle ----
     addEdges([
-      { id: `edge_${edgeOriginSource.value}_${newNode.id}`, source: edgeOriginSource.value, target: newNode.id },
-      { id: `edge_${newNode.id}_${edgeOriginTarget.value}`, source: newNode.id, target: edgeOriginTarget.value },
+      {
+        id: `edge_${edgeOriginSource.value}_${newNode.id}`,
+        source: edgeOriginSource.value,
+        target: newNode.id,
+        sourceHandle: originSourceHandle
+      },
+      {
+        id: `edge_${newNode.id}_${edgeOriginTarget.value}`,
+        source: newNode.id,
+        target: edgeOriginTarget.value,
+        targetHandle: originTargetHandle
+      },
     ])
+
     ElMessage.success(`已插入 ${targetGroup.label}`)
   } else {
     // 空白处添加
@@ -588,7 +606,13 @@ const onConnect = (connection) => {
     ElMessage.warning('连接失败：缺少源节点或目标节点')
     return
   }
-  addEdges([{ id: `edge_${Date.now()}_${Math.random()}`, source: connection.source, target: connection.target }])
+  addEdges([{
+    id: `edge_${Date.now()}_${Math.random()}`,
+    source: connection.source,
+    target: connection.target,
+    sourceHandle: connection.sourceHandle || null,
+    targetHandle: connection.targetHandle || null
+  }])
   ElMessage.success('连线创建成功')
 }
 
@@ -760,16 +784,29 @@ const saveWorkflow = async () => {
 
   saving.value = true
   try {
-    const pureNodes = nodes.value.map((node) => ({
-      id: node.id,
-      type: node.type,
-      name: node.data.name,
-      config: node.data.config || {},
-      position: {
-        x: node.position.x,
-        y: node.position.y,
-      },
-    }))
+    const pureNodes = nodes.value.map((node) => {
+      const base = {
+        id: node.id,
+        type: node.type,
+        name: node.data.name,
+        config: { ...node.data.config },
+        position: { x: node.position.x, y: node.position.y },
+      }
+
+      // ★ 条件节点兜底
+      if (node.type === 'CONDITION') {
+        if (!base.config.branches || base.config.branches.length === 0) {
+          base.config.branches = [
+            { type: 'IF', variable: '', operator: '==', value: '' },
+            { type: 'ELSE' }
+          ]
+        }
+        // 可选：删除可能遗留的 expression 字段（如果有）
+        delete base.config.expression
+      }
+
+      return base
+    })
 
     const pureEdges = edges.value
         .filter((edge) => edge.id && edge.source && edge.target)
@@ -809,7 +846,6 @@ const saveWorkflow = async () => {
       if (isNew && res.data?.id) {
         router.replace(`/workflow/editor/${res.data.id}`)
       }
-      // 不再调用 loadWorkflow()
     }
   } catch (err) {
     console.error('保存异常', err)
@@ -981,7 +1017,57 @@ const showWorkflowInfo = () => {
 // -------------------- 加载工作流 --------------------
 const loadWorkflow = async () => {
   const workflowId = route.params.id
+  const sourceId = route.query.sourceId
   if (!workflowId || workflowId === 'new') {
+    // 如果有 sourceId，则加载源工作流数据（复制模式）
+    if (sourceId) {
+      try {
+        const res = await workflowApi.getDetail(sourceId)
+        if (res.code === 200 && res.data) {
+          const data = res.data
+          workflowName.value = data.name ? `${data.name}(副本)` : ''
+          workflowDescription.value = data.description || ''
+          const graph = data.graph
+          if (graph) {
+            // 清空当前画布，再添加复制的节点和边
+            nodes.value = []
+            edges.value = []
+            await nextTick()
+
+            // 复制节点（可直接使用原 id，或重新生成，但为了简单，保留 id）
+            const copiedNodes = (graph.nodes || []).map((node) => ({
+              id: node.id,
+              type: node.type,
+              position: { x: node.position?.x ?? 0, y: node.position?.y ?? 0 },
+              data: { name: node.name, config: node.config || {} },
+            }))
+            addNodes(copiedNodes)
+
+            const copiedEdges = (graph.edges || [])
+                .filter((e) => e.id && e.source && e.target)
+                .map((e) => ({
+                  id: e.id,
+                  source: e.source,
+                  target: e.target,
+                  sourceHandle: e.sourceHandle || null,
+                  targetHandle: e.targetHandle || null,
+                  condition: e.condition || null,
+                }))
+            addEdges(copiedEdges)
+
+            await nextTick()
+            fitView({ padding: 0.2, maxZoom: 1.5, duration: 300 })
+            ElMessage.success('已加载源工作流节点，可在此基础上修改')
+            return // 直接返回，不继续执行后续的默认模板
+          }
+        } else {
+          ElMessage.warning('加载源工作流失败，将创建空白工作流')
+        }
+      } catch (err) {
+        console.error('加载源工作流异常', err)
+        ElMessage.error('加载源工作流异常，将创建空白工作流')
+      }
+    }
     nodes.value = []
     edges.value = []
     await nextTick()

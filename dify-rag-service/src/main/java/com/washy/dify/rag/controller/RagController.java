@@ -14,10 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * RAG控制器 - Day2 文档上传+分块
@@ -103,24 +100,39 @@ public class RagController {
     public Result<String> searchMuchDocument(@RequestBody Map<String,Object> request) {
 
         try {
-            if (request != null && null != request.get("query") && !"".equals(request.get("query"))) {
-                String query = request.get("query").toString();
+            if (request != null && request.get("query") != null && !"".equals(request.get("query"))) {
+                String query = String.valueOf(request.get("query"));
                 List<String> kbs = Collections.singletonList("");
+                
                 Object kbsObj = request.get("kbs");
                 if (kbsObj instanceof List) {
                     @SuppressWarnings("unchecked")
-                    List<String> temp = (List<String>) kbsObj;
+                    List<?> kbsList = (List<?>) kbsObj;
+                    List<String> temp = new ArrayList<>();
+                    for (Object item : kbsList) {
+                        temp.add(String.valueOf(item));
+                    }
                     kbs = temp;
                 }
-                int topN = request.get("topN") == "5" ? Integer.parseInt(request.get("topN").toString()) : 5;
+                
+                int topN = 5;
+                Object topNObj = request.get("topN");
+                if (topNObj instanceof Number) {
+                    topN = ((Number) topNObj).intValue();
+                } else if (topNObj instanceof String) {
+                    try {
+                        topN = Integer.parseInt((String) topNObj);
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
 
                 // 1. 检索相关文档块
                 String response = ragQueryService.queryMultipleForWorkflow(query,kbs,topN);
 
                 return Result.success(response);
             }else{
-                log.error("RAG查询添加为空");
-                return Result.error("RAG查询添加为空");
+                log.error("RAG查询条件为空");
+                return Result.error("RAG查询条件为空");
             }
 
         } catch (Exception e) {
@@ -139,11 +151,17 @@ public class RagController {
     @PostMapping("/prompt-template/store")
     public Result<Void> storePromptTemplate(@RequestBody Map<String, Object> request) {
         try {
-            String templateId = (String) request.get("templateId");
-            String templateName = (String) request.get("templateName");
-            String content = (String) request.get("content");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> metadata = (Map<String, Object>) request.getOrDefault("metadata", new HashMap<>());
+            String templateId = getString(request, "templateId");
+            String templateName = getString(request, "templateName");
+            String content = getString(request, "content");
+            
+            Object metadataObj = request.get("metadata");
+            Map<String, Object> metadata = new HashMap<>();
+            if (metadataObj instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> metaMap = (Map<String, Object>) metadataObj;
+                metadata.putAll(metaMap);
+            }
 
             if (templateId == null || content == null) {
                 return Result.error("templateId和content不能为空");
@@ -253,5 +271,10 @@ public class RagController {
             log.error("获取提示词模板数量失败", e);
             return Result.error(e.getMessage());
         }
+    }
+
+    private String getString(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        return value != null ? String.valueOf(value) : null;
     }
 }

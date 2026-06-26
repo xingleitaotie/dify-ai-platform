@@ -77,7 +77,7 @@
               </el-tooltip>
 
               <!-- 测试按钮 -->
-              <el-tooltip content="测试运行" placement="top">
+              <el-tooltip content="运行" placement="top">
                 <el-button type="success" size="small" circle @click="testWorkflow(row)">
                   <el-icon><VideoPlay /></el-icon>
                 </el-button>
@@ -149,7 +149,7 @@
         <el-button @click="testDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="runTest" :loading="testing">
           <el-icon><VideoPlay /></el-icon>
-          执行测试
+          执行
         </el-button>
       </template>
 

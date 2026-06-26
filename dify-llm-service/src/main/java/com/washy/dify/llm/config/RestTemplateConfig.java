@@ -21,7 +21,7 @@ public class RestTemplateConfig {
     public RestTemplate restTemplate() throws NoSuchAlgorithmException, KeyManagementException {
         // 强制使用 TLS 1.2，禁用 1.3 0-RTT
         SSLContext sslContext = SSLContexts.custom()
-                .useProtocol("TLSv1.2")
+                .setProtocol("TLSv1.2")
                 .build();
 
         SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(

@@ -47,10 +47,7 @@ public class AIOptimizationService {
      */
     private final Map<String, Map<String, String>> cache = new ConcurrentHashMap<>();
 
-    /**
-     * 缓存过期时间（毫秒）
-     */
-    private static final long CACHE_EXPIRE_MS = 3600000; // 1小时
+    
 
     /**
      * 优化分块列表（主入口 - 批量模式）
@@ -110,7 +107,7 @@ public class AIOptimizationService {
                 continue;
             }
 
-            tasks.add(new OptimizeTask(chunk.getChunkId(), chunk, i, tasks.size() + 1, tasks.size() + 1));
+            tasks.add(new OptimizeTask(chunk.getChunkId(), chunk));
         }
 
         return tasks;
@@ -595,18 +592,12 @@ public class AIOptimizationService {
     private static class OptimizeTask {
         String chunkId;
         DocumentChunk chunk;
-        int originalIndex;
-        int batchIndex;
-        int totalInBatch;
         boolean cached;
         Map<String, String> cachedResult;
 
-        OptimizeTask(String chunkId, DocumentChunk chunk, int originalIndex, int batchIndex, int totalInBatch) {
+        OptimizeTask(String chunkId, DocumentChunk chunk) {
             this.chunkId = chunkId;
             this.chunk = chunk;
-            this.originalIndex = originalIndex;
-            this.batchIndex = batchIndex;
-            this.totalInBatch = totalInBatch;
             this.cached = false;
         }
 

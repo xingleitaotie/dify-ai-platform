@@ -66,7 +66,19 @@ const routes = [
                 path: 'settings',
                 name: 'Settings',
                 component: () => import('@/views/Settings.vue'),
-                meta: { title: '设置', icon: 'Setting', requiresAuth: true }
+                meta: { title: '设置', icon: 'Tools', requiresAuth: true }
+            },
+            {
+                path: 'system/menu',
+                name: 'MenuManage',
+                component: () => import('@/views/system/MenuManage.vue'),
+                meta: { title: '菜单管理', icon: 'Menu', requiresAuth: true }
+            },
+            {
+                path: 'system/button',
+                name: 'ButtonManage',
+                component: () => import('@/views/system/ButtonManage.vue'),
+                meta: { title: '按钮管理', icon: 'Grid', requiresAuth: true }
             }
         ]
     },
@@ -85,10 +97,13 @@ const router = createRouter({
 // 需要跳过验证的白名单路径
 const whiteList = ['/login']
 
+import { useMenuStore } from '@/stores/menu'
+
 // 路由守卫
 router.beforeEach(async (to, from, next) => {
     const token = localStorage.getItem('token')
     const userStore = useUserStore()
+    const menuStore = useMenuStore()
 
     console.log('路由守卫:', to.path, 'token:', !!token)
 
@@ -105,23 +120,11 @@ router.beforeEach(async (to, from, next) => {
             userStore.initAuth()
         }
 
-        // 可选：异步验证 token 有效性（可以注释掉以提高性能）
-        // 如果需要严格的 token 验证，取消下面的注释
-        /*
-        try {
-            const isValid = await userStore.verifyToken()
-            if (!isValid) {
-                userStore.logout()
-                ElMessage.error('登录已过期，请重新登录')
-                next('/login')
-                return
-            }
-        } catch (error) {
-            userStore.logout()
-            next('/login')
-            return
+        // 确保菜单数据已加载
+        if (menuStore.menus.length === 0) {
+            await menuStore.loadMenus()
+            await menuStore.loadPermissions()
         }
-        */
 
         next()
     } else {

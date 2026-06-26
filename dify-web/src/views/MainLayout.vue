@@ -32,7 +32,7 @@ import TopNav from '@/views/components/TopNav.vue'
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f3f4f6;
+  background: var(--bg-dark);
 }
 
 .content-view {

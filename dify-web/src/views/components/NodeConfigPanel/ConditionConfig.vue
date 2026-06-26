@@ -27,6 +27,7 @@
         <!-- 条件配置（ELSE 无配置） -->
         <template v-if="branch.type !== 'ELSE'">
           <div class="condition-row">
+            <!-- 变量 -->
             <div class="condition-item">
               <label>变量</label>
               <div class="input-with-dropdown">
@@ -66,22 +67,32 @@
               </div>
             </div>
 
+            <!-- 运算符：改为自定义下拉 -->
             <div class="condition-item">
               <label>运算符</label>
-              <el-select v-model="branch.operator" size="small" style="width: 140px">
-                <el-option label="等于" value="==" />
-                <el-option label="不等于" value="!=" />
-                <el-option label="大于" value=">" />
-                <el-option label="大于等于" value=">=" />
-                <el-option label="小于" value="<" />
-                <el-option label="小于等于" value="<=" />
-                <el-option label="包含" value="contains" />
-                <el-option label="不包含" value="not_contains" />
-                <el-option label="为空" value="empty" />
-                <el-option label="不为空" value="not_empty" />
-              </el-select>
+              <div class="operator-selector">
+                <el-dropdown trigger="click" @command="(cmd) => setOperator(index, cmd)">
+                  <div class="operator-trigger">
+                    <span v-if="branch.operator" class="operator-value">{{ getOperatorLabel(branch.operator) }}</span>
+                    <span v-else class="operator-placeholder">选择运算符</span>
+                    <el-icon class="operator-arrow"><ArrowDown /></el-icon>
+                  </div>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item
+                          v-for="op in operatorOptions"
+                          :key="op.value"
+                          :command="op.value"
+                      >
+                        {{ op.label }}
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
             </div>
 
+            <!-- 比较值（仅非 empty/not_empty） -->
             <div class="condition-item" v-if="!['empty', 'not_empty'].includes(branch.operator)">
               <label>比较值</label>
               <div class="input-with-dropdown">
@@ -139,7 +150,7 @@
 </template>
 
 <script setup>
-import { computed, inject, ref } from 'vue'
+import { computed, inject, ref, onMounted } from 'vue'
 import { ArrowDown } from '@element-plus/icons-vue'
 
 const props = defineProps({
@@ -155,13 +166,36 @@ const nodeOutputVars = computed(() => {
   return vars.filter(v => v.outputVar && v.nodeId !== props.node.id)
 })
 
-// 用 computed 安全读取/写入 branches，不再需要 reactive 本地副本
+// 运算符选项
+const operatorOptions = [
+  { label: '等于', value: '==' },
+  { label: '不等于', value: '!=' },
+  { label: '大于', value: '>' },
+  { label: '大于等于', value: '>=' },
+  { label: '小于', value: '<' },
+  { label: '小于等于', value: '<=' },
+  { label: '包含', value: 'contains' },
+  { label: '不包含', value: 'not_contains' },
+  { label: '为空', value: 'empty' },
+  { label: '不为空', value: 'not_empty' }
+]
+
+// 获取运算符显示名称
+const getOperatorLabel = (value) => {
+  const found = operatorOptions.find(op => op.value === value)
+  return found ? found.label : value
+}
+
+// branches 双向绑定
 const branches = computed({
   get() {
-    return props.config.branches || [
-      { type: 'IF', variable: '', operator: '==', value: '' },
-      { type: 'ELSE' }
-    ]
+    if (!props.config.branches) {
+      props.config.branches = [
+        { type: 'IF', variable: '', operator: '==', value: '' },
+        { type: 'ELSE' }
+      ]
+    }
+    return props.config.branches
   },
   set(val) {
     props.config.branches = val
@@ -176,6 +210,7 @@ const branchLabel = (type) => ({
   ELSE: '否则 (ELSE)'
 }[type])
 
+// 新增分支
 const addBranch = (type) => {
   if (type === 'ELSE' && hasElse.value) return
   const newBranch = { type, variable: '', operator: '==', value: '' }
@@ -198,6 +233,7 @@ const addBranch = (type) => {
   branches.value = currentBranches
 }
 
+// 删除分支
 const removeBranch = (index) => {
   if (branches.value[index].type === 'ELSE') return
   const newBranches = [...branches.value]
@@ -205,6 +241,18 @@ const removeBranch = (index) => {
   branches.value = newBranches
 }
 
+// 设置运算符
+const setOperator = (index, operator) => {
+  const newBranches = branches.value.map((b, i) => {
+    if (i === index) {
+      return { ...b, operator }
+    }
+    return b
+  })
+  branches.value = newBranches
+}
+
+// 插入变量
 const insertToField = (field, index, varPath) => {
   const variable = `{{${varPath}}}`
   const currentBranches = branches.value.map((b, i) => {
@@ -215,6 +263,16 @@ const insertToField = (field, index, varPath) => {
   })
   branches.value = currentBranches
 }
+
+// 初始化（如无分支则设置默认）
+onMounted(() => {
+  if (!props.config.branches) {
+    props.config.branches = [
+      { type: 'IF', variable: '', operator: '==', value: '' },
+      { type: 'ELSE' }
+    ]
+  }
+})
 </script>
 
 <style scoped>
@@ -268,12 +326,57 @@ const insertToField = (field, index, varPath) => {
 .input-with-dropdown {
   display: flex;
   gap: 4px;
+  align-items: center;
 }
+
+/* ===== 运算符自定义下拉（仿 EndConfig） ===== */
+.operator-selector {
+  min-width: 120px;
+}
+.operator-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  background: #1a1f3a;
+  border: 1px solid #2a2f4a;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 32px;
+  font-size: 13px;
+}
+.operator-trigger:hover {
+  border-color: #667eea;
+  background: #22284a;
+}
+.operator-value {
+  color: #a78bfa;
+}
+.operator-placeholder {
+  color: #64748b;
+}
+.operator-arrow {
+  color: #94a3b8;
+  transition: transform 0.2s;
+}
+.operator-trigger:hover .operator-arrow {
+  color: #a78bfa;
+}
+
+/* ===== 变量代码样式 ===== */
 .var-code {
   font-family: monospace;
   font-size: 12px;
   color: #a78bfa;
 }
+.var-desc {
+  font-size: 12px;
+  color: #64748b;
+  margin-left: 8px;
+}
+
+/* ===== 按钮、输入框等统一深色 ===== */
 .add-branch-area {
   margin-top: 12px;
   display: flex;
@@ -283,5 +386,64 @@ const insertToField = (field, index, varPath) => {
   font-size: 12px;
   color: #8b8fa9;
   margin-top: 12px;
+}
+
+/* ===== 深度覆盖输入框、下拉菜单（与 EndConfig 一致） ===== */
+:deep(.el-input .el-input__wrapper) {
+  background: #0f1228 !important;
+  border: 1px solid #2a2f4a !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+:deep(.el-input .el-input__wrapper:hover) {
+  border-color: #667eea !important;
+}
+:deep(.el-input .el-input__wrapper.is-focus) {
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
+}
+:deep(.el-input .el-input__inner) {
+  color: #ffffff !important;
+}
+:deep(.el-input .el-input__inner::placeholder) {
+  color: #64748b !important;
+}
+
+:deep(.el-dropdown-menu) {
+  background: #1a1f3a !important;
+  border: 1px solid #2a2f4a !important;
+  border-radius: 8px !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item) {
+  color: #cbd5e6 !important;
+  background: transparent !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item:hover) {
+  background: #2a2f4a !important;
+  color: #ffffff !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item.is-selected) {
+  color: #667eea !important;
+  background: rgba(102, 126, 234, 0.1) !important;
+}
+
+:deep(.el-button--danger) {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  color: #f87171 !important;
+}
+:deep(.el-button--danger:hover) {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+:deep(.el-divider) {
+  border-color: #2a2f4a !important;
+}
+:deep(.el-divider__text) {
+  color: #94a3b8 !important;
+  font-weight: 500;
+  font-size: 13px;
 }
 </style>

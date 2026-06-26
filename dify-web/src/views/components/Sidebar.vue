@@ -9,17 +9,21 @@
 
     <div class="menu-list">
       <div
-          v-for="item in menuItems"
-          :key="item.path"
-          class="menu-item"
-          :class="{ active: currentPath === item.path }"
-          @click="goTo(item.path)"
+          v-for="menu in sidebarMenus"
+          :key="menu.id"
+          class="menu-item-wrapper"
       >
-        <div class="menu-icon">
-          <el-icon><component :is="item.iconComponent" /></el-icon>
+        <div
+            class="menu-item"
+            :class="{ active: currentPath === menu.path }"
+            @click="goTo(menu.path)"
+        >
+          <div class="menu-icon">
+            <el-icon><component :is="getIcon(menu.icon)" /></el-icon>
+          </div>
+          <span>{{ menu.title }}</span>
+          <div class="menu-glow"></div>
         </div>
-        <span>{{ item.title }}</span>
-        <div class="menu-glow"></div>
       </div>
     </div>
 
@@ -33,7 +37,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -45,26 +49,39 @@ import {
   Setting,
   User,
   Share,
-  Edit
+  Edit,
+  Tools,
+  Menu,
+  Grid
 } from '@element-plus/icons-vue'
+import { useMenuStore } from '@/stores/menu'
 
 const route = useRoute()
 const router = useRouter()
+const menuStore = useMenuStore()
 
 const currentPath = computed(() => route.path)
 
-const menuItems = [
-  { path: '/dashboard', title: '首页', iconComponent: HomeFilled },
-  { path: '/chat', title: '对话', iconComponent: ChatDotRound },
-  { path: '/knowledge-base', title: '知识库', iconComponent: Document },
-  { path: '/agent', title: 'Agent', iconComponent: Cpu },
-  { path: '/workflow/list', title: '工作流', iconComponent: Share },
-  { path: '/prompt', title: '提示词', iconComponent: Edit },
-  { path: '/settings', title: '设置', iconComponent: Setting }
-]
+const sidebarMenus = computed(() => menuStore.sidebarMenus)
+
+const iconMap = {
+  HomeFilled,
+  ChatDotRound,
+  Document,
+  Cpu,
+  Setting,
+  Share,
+  Edit,
+  Tools,
+  Menu,
+  Grid
+}
+
+const getIcon = (iconName) => {
+  return iconMap[iconName] || HomeFilled
+}
 
 const goTo = (path) => {
-  console.log('点击菜单:', path)
   router.push(path)
 }
 
@@ -78,10 +95,17 @@ const logout = async () => {
     })
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('userRole')
     ElMessage.success('已退出登录')
     router.push('/login')
   } catch {}
 }
+
+onMounted(() => {
+  if (!localStorage.getItem('userRole')) {
+    localStorage.setItem('userRole', 'admin')
+  }
+})
 </script>
 
 <style scoped>
@@ -157,6 +181,11 @@ const logout = async () => {
 .menu-list {
   flex: 1;
   padding: 24px 16px;
+  overflow-y: auto;
+}
+
+.menu-item-wrapper {
+  margin-bottom: 8px;
 }
 
 .menu-item {
@@ -164,7 +193,6 @@ const logout = async () => {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  margin-bottom: 8px;
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -174,24 +202,8 @@ const logout = async () => {
   overflow: hidden;
 }
 
-.menu-item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 0;
-  height: 100%;
-  background: var(--primary-gradient);
-  opacity: 0.1;
-  transition: width 0.3s ease;
-}
-
-.menu-item:hover::before {
-  width: 100%;
-}
-
 .menu-item:hover {
-  transform: translateX(4px);
+  background: rgba(102, 126, 234, 0.1);
   color: var(--text-primary);
 }
 

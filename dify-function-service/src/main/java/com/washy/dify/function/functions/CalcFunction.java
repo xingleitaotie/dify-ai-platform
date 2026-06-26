@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Map;
 
 /**
@@ -68,7 +69,7 @@ public class CalcFunction {
                     if (num2.compareTo(BigDecimal.ZERO) == 0) {
                         return "错误：除数不能为零";
                     }
-                    result = num1.divide(num2, 2, BigDecimal.ROUND_HALF_UP);
+                    result = num1.divide(num2, 2, RoundingMode.HALF_UP);
                     break;
                 default:
                     return "错误：不支持的运算类型 " + operation;

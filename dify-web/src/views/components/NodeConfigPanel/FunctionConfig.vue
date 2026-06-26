@@ -2,21 +2,32 @@
   <div class="function-config">
     <!-- 基础配置 -->
     <el-form-item label="函数名称" prop="functionName">
-      <el-select
-          v-model="functionName"
-          placeholder="选择函数"
-          filterable
-          :loading="functionLoading"
-          @change="onFunctionChange"
-          @focus="loadFunctionList"
-      >
-        <el-option
-            v-for="func in functionList"
-            :key="func.name"
-            :label="`${func.name} - ${func.desc}`"
-            :value="func.name"
-        />
-      </el-select>
+      <div class="function-selector">
+        <el-dropdown trigger="click" @command="selectFunction">
+          <div class="function-trigger">
+            <span v-if="selectedFunctionLabel" class="function-value">{{ selectedFunctionLabel }}</span>
+            <span v-else class="function-placeholder">请选择函数</span>
+            <el-icon class="function-arrow"><ArrowDown /></el-icon>
+          </div>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                  v-for="func in functionList"
+                  :key="func.name"
+                  :command="func.name"
+              >
+                {{ func.name }} - {{ func.desc }}
+              </el-dropdown-item>
+              <el-dropdown-item v-if="functionList.length === 0" disabled>
+                暂无函数
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <el-button size="small" plain @click="loadFunctionList" class="refresh-btn" :loading="functionLoading">
+          <el-icon><Refresh /></el-icon>
+        </el-button>
+      </div>
     </el-form-item>
 
     <!-- 动态参数表单 -->
@@ -37,7 +48,7 @@
               class="param-input"
           />
           <el-dropdown @command="(cmd) => insertParamVariable(paramName, cmd)">
-            <el-button size="small" plain>
+            <el-button size="small" plain class="insert-btn">
               插入变量 <el-icon><ArrowDown /></el-icon>
             </el-button>
             <template #dropdown>
@@ -85,9 +96,10 @@
 </template>
 
 <script setup>
+/* ========== JS 逻辑完全保持原样，仅新增 UI 辅助 ========== */
 import { ref, computed, inject, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, Refresh } from '@element-plus/icons-vue'
 import { functionApi } from '@/api'
 
 const props = defineProps({
@@ -132,6 +144,13 @@ const functionList = ref([])
 const functionLoading = ref(false)
 const paramSchema = ref({})
 const paramValues = ref({}) // 用户填写的参数值
+
+// UI 辅助：当前选中的函数显示名称
+const selectedFunctionLabel = computed(() => {
+  if (!functionName.value) return ''
+  const found = functionList.value.find(f => f.name === functionName.value)
+  return found ? `${found.name} - ${found.desc}` : functionName.value
+})
 
 const loadFunctionList = async () => {
   if (functionLoading.value) return
@@ -208,6 +227,12 @@ const onFunctionChange = async (funcName) => {
   }
 }
 
+// UI 选择函数（封装，调用原有逻辑）
+const selectFunction = (funcName) => {
+  functionName.value = funcName
+  onFunctionChange(funcName)
+}
+
 const isParamRequired = (paramName) => {
   return paramSchema.value[paramName]?.required || false
 }
@@ -220,10 +245,6 @@ const insertParamVariable = (paramName, varPath) => {
 }
 
 // ========== 参数值变化 → 自动写回 config.parameters ==========
-// 由于 paramValues 是本地 ref，需要手动同步到 computed 的 parameters
-// 这里使用深度 watch 仍然不方便，所以改用 computed 的 get/set 结合 paramValues 变化同步
-// 更简单的做法：直接在每次修改 paramValues 后同步
-// 但 paramValues 是 ref，无法自动触发 set，因此用一个 watch 来同步参数
 watch(paramValues, (newVal) => {
   parameters.value = { ...newVal }
 }, { deep: true })
@@ -238,7 +259,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-
+/* ===== 变量和提示文字 ===== */
 .var-code {
   font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
   font-size: 12px;
@@ -249,37 +270,152 @@ onMounted(() => {
   color: #64748b;
   margin-left: 8px;
 }
-
 .form-tip {
   font-size: 12px;
   color: #8b8fa9;
   margin-top: 4px;
 }
-
-.param-item {
-  margin-bottom: 16px;
+.form-tip code {
+  background: #1a1f3a;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #a78bfa;
+  font-size: 12px;
 }
-
-.param-input-wrapper {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.param-input-wrapper .param-input {
-  flex: 1;
-}
-
 .param-hint {
   font-size: 12px;
   color: #64748b;
   margin-top: 4px;
 }
-
 .no-params-hint {
   color: #94a3b8;
   font-size: 13px;
   padding: 8px 0;
 }
 
+/* ===== 函数选择器 ===== */
+.function-selector {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.function-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  background: #1a1f3a;
+  border: 1px solid #2a2f4a;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 32px;
+  min-width: 180px;
+  font-size: 13px;
+  flex: 1;
+}
+.function-trigger:hover {
+  border-color: #667eea;
+  background: #22284a;
+}
+.function-value {
+  color: #a78bfa;
+}
+.function-placeholder {
+  color: #64748b;
+}
+.function-arrow {
+  color: #94a3b8;
+  transition: transform 0.2s;
+}
+.function-trigger:hover .function-arrow {
+  color: #a78bfa;
+}
+.refresh-btn {
+  background: rgba(102, 126, 234, 0.08) !important;
+  border: 1px solid rgba(102, 126, 234, 0.2) !important;
+  color: #a78bfa !important;
+  padding: 5px 8px !important;
+}
+.refresh-btn:hover {
+  background: rgba(102, 126, 234, 0.2) !important;
+  border-color: #667eea !important;
+}
+
+/* ===== 参数输入区域 ===== */
+.param-item {
+  margin-bottom: 16px;
+}
+.param-input-wrapper {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.param-input-wrapper .param-input {
+  flex: 1;
+}
+.insert-btn {
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+  background: rgba(102, 126, 234, 0.08) !important;
+  border: 1px solid rgba(102, 126, 234, 0.2) !important;
+  color: #a78bfa !important;
+  white-space: nowrap;
+}
+.insert-btn:hover {
+  background: rgba(102, 126, 234, 0.2) !important;
+  border-color: #667eea !important;
+}
+
+/* ===== 全局深色覆盖 ===== */
+:deep(.el-input .el-input__wrapper) {
+  background: #0f1228 !important;
+  border: 1px solid #2a2f4a !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+:deep(.el-input .el-input__wrapper:hover) {
+  border-color: #667eea !important;
+}
+:deep(.el-input .el-input__wrapper.is-focus) {
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
+}
+:deep(.el-input .el-input__inner) {
+  color: #ffffff !important;
+}
+:deep(.el-input .el-input__inner::placeholder) {
+  color: #64748b !important;
+}
+
+:deep(.el-dropdown-menu) {
+  background: #1a1f3a !important;
+  border: 1px solid #2a2f4a !important;
+  border-radius: 8px !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item) {
+  color: #cbd5e6 !important;
+  background: transparent !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item:hover) {
+  background: #2a2f4a !important;
+  color: #ffffff !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item.is-selected) {
+  color: #667eea !important;
+  background: rgba(102, 126, 234, 0.1) !important;
+}
+:deep(.el-dropdown-menu .el-dropdown-menu__item.is-disabled) {
+  color: #4a4f6a !important;
+  cursor: not-allowed !important;
+}
+
+:deep(.el-divider) {
+  border-color: #2a2f4a !important;
+}
+:deep(.el-divider__text) {
+  color: #94a3b8 !important;
+  font-weight: 500;
+  font-size: 13px;
+}
 </style>

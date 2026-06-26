@@ -23,14 +23,21 @@ public class EndNodeExecutor implements NodeExecutor {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public Map<String, Object> execute(Map<String, Object> nodeInput, WorkflowContext context) {
         Map<String, Object> output = new HashMap<>();
 
-        Map<String, Object> config = (Map<String, Object>) nodeInput.get("config");
+        Object configObj = nodeInput.get("config");
         List<Map<String, Object>> outputVariables = null;
-        if (config != null && config.containsKey("outputVariables")) {
-            outputVariables = (List<Map<String, Object>>) config.get("outputVariables");
+        if (configObj instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> config = (Map<String, Object>) configObj;
+            
+            Object outputVariablesObj = config.get("outputVariables");
+            if (outputVariablesObj instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> vars = (List<Map<String, Object>>) outputVariablesObj;
+                outputVariables = vars;
+            }
         }
 
         // 如果有 outputVariables 配置，按映射关系构建输出
@@ -38,21 +45,33 @@ public class EndNodeExecutor implements NodeExecutor {
             Map<String, Object> result = new HashMap<>();
             for (Map<String, Object> varDef : outputVariables) {
                 String name = (String) varDef.get("name");
-                String source = (String) varDef.get("source");
                 if (name == null || name.isEmpty()) {
                     continue;
                 }
 
-                // ========== 关键修复 ==========
-                // 将 "input.query" 转换为 "{{input.query}}" 格式，再交给解析器
-                String sourceWithBrackets = wrapVariableIfNeeded(source);
-                Object value = resolver.resolve(sourceWithBrackets, context);
-                // =============================
+                // ★★★ 判断模式 ★★★
+                String mode = (String) varDef.getOrDefault("mode", "variable");
+                Object value = null;
+
+                if ("text".equals(mode)) {
+                    // 自定义文本模式：直接取 customText
+                    value = varDef.get("customText");
+                    if (value == null) value = "";
+                    log.debug("自定义文本输出: {} = {}", name, value);
+                } else {
+                    // 引用变量模式：从 source 解析
+                    String source = (String) varDef.get("source");
+                    if (source != null && !source.isEmpty()) {
+                        String sourceWithBrackets = wrapVariableIfNeeded(source);
+                        value = resolver.resolve(sourceWithBrackets, context);
+                        log.debug("变量引用输出: {} = {} (source: {})", name, value, source);
+                    }
+                }
 
                 if (value != null) {
                     result.put(name, value);
                 } else {
-                    log.warn("变量 {} 解析为空，source: {}", name, source);
+                    log.warn("变量 {} 解析为空，mode: {}, source: {}", name, mode, varDef.get("source"));
                 }
             }
             output.put("code", 200);
@@ -62,7 +81,7 @@ public class EndNodeExecutor implements NodeExecutor {
             return output;
         }
 
-        // 无 outputVariables 配置时，使用智能提取逻辑
+        // 无 outputVariables 配置时，使用智能提取逻辑（保持不变）
         Object lastOutput = context.getLastNodeOutput();
         Object finalResult = extractFinalResult(lastOutput);
 
@@ -85,18 +104,12 @@ public class EndNodeExecutor implements NodeExecutor {
         if (source == null || source.isEmpty()) {
             return source;
         }
-
-        // 如果已经包含 {{ 和 }}，说明已经是完整变量格式，直接返回
         if (source.contains("{{") && source.contains("}}")) {
             return source;
         }
-
-        // 判断是否为变量格式：input.xxx 或 var.xxx
         if (source.startsWith("input.") || source.startsWith("var.")) {
             return "{{" + source + "}}";
         }
-
-        // 纯字符串（不是变量），直接返回
         return source;
     }
 

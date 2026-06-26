@@ -180,7 +180,6 @@ public class WorkflowVariableResolver {
     /**
      * 解析Map中的所有变量
      */
-    @SuppressWarnings("unchecked")
     public Map<String, Object> resolveMap(Map<String, Object> map, WorkflowContext context) {
         if (map == null) return new HashMap<>();
 
@@ -194,7 +193,6 @@ public class WorkflowVariableResolver {
     /**
      * 解析List中的所有变量
      */
-    @SuppressWarnings("unchecked")
     public List<Object> resolveList(List<?> list, WorkflowContext context) {
         if (list == null) return new ArrayList<>();
 
@@ -208,17 +206,20 @@ public class WorkflowVariableResolver {
     /**
      * 递归解析对象
      */
-    @SuppressWarnings("unchecked")
     public Object resolveObject(Object obj, WorkflowContext context) {
         if (obj == null) return null;
         if (obj instanceof String) {
             return resolve((String) obj, context);
         }
         if (obj instanceof Map) {
-            return resolveMap((Map<String, Object>) obj, context);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> mapObj = (Map<String, Object>) obj;
+            return resolveMap(mapObj, context);
         }
         if (obj instanceof List) {
-            return resolveList((List<?>) obj, context);
+            @SuppressWarnings("unchecked")
+            List<?> listObj = (List<?>) obj;
+            return resolveList(listObj, context);
         }
         return obj;
     }

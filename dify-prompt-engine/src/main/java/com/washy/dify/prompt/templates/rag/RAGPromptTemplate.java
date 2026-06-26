@@ -46,19 +46,32 @@ public class RAGPromptTemplate implements PromptTemplate {
         return "RAG 增强问答模板，基于知识库检索结果回答问题";
     }
     
-    @SuppressWarnings("unchecked")
     @Override
     public String render(Map<String, Object> context) {
-        String question = (String) context.getOrDefault("question", "");
-        List<String> contexts = (List<String>) context.getOrDefault("contexts", new ArrayList<>());
+        String question = getString(context, "question", "");
+        Object contextsObj = context.get("contexts");
+        List<String> contexts = new ArrayList<>();
+        
+        if (contextsObj instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<?> contextsList = (List<?>) contextsObj;
+            for (Object item : contextsList) {
+                contexts.add(String.valueOf(item));
+            }
+        }
         
         String contextsStr = contexts.stream()
-            .limit(5)  // 最多取5个片段
+            .limit(5)
             .collect(Collectors.joining("\n---\n"));
         
         return TEMPLATE
             .replace("${contexts}", contextsStr)
             .replace("${question}", question);
+    }
+    
+    private String getString(Map<String, Object> context, String key, String defaultValue) {
+        Object value = context.get(key);
+        return value != null ? String.valueOf(value) : defaultValue;
     }
     
     @Override

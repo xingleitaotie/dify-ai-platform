@@ -1,0 +1,225 @@
+[INFO] Scanning for projects...
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.washy.dify:dify-common:jar:1.0
+[WARNING] 'dependencies.dependency.(groupId:artifactId:type:classifier)' must be unique: org.yaml:snakeyaml:jar -> duplicate declaration of version (?) @ line 57, column 21
+[WARNING] 
+[WARNING] It is highly recommended to fix these problems because they threaten the stability of your build.
+[WARNING] 
+[WARNING] For this reason, future Maven versions might no longer support building such malformed projects.
+[WARNING] 
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO] 
+[INFO] dify-ai-platform                                                   [pom]
+[INFO] dify-common                                                        [jar]
+[INFO] dify-feign-api                                                     [jar]
+[INFO] dify-llm-service                                                   [jar]
+[INFO] dify-rag-service                                                   [jar]
+[INFO] dify-function-service                                              [jar]
+[INFO] dify-agent-service                                                 [jar]
+[INFO] dify-api-gateway                                                   [jar]
+[INFO] dify-eureka-server                                                 [jar]
+[INFO] dify-user-service                                                  [jar]
+[INFO] dify-prompt-engine                                                 [jar]
+[INFO] dify-workflow-service                                              [jar]
+[INFO] dify-model-provider                                                [jar]
+[INFO] 
+[INFO] ------------------< com.washy.dify:dify-ai-platform >-------------------
+[INFO] Building dify-ai-platform 1.0                                     [1/13]
+[INFO]   from pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] ---------------------< com.washy.dify:dify-common >---------------------
+[INFO] Building dify-common 1.0                                          [2/13]
+[INFO]   from dify-common\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.2.0:resources (default-resources) @ dify-common ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 0 resource
+[INFO] Copying 0 resource
+[INFO] 
+[INFO] --- compiler:3.10.1:compile (default-compile) @ dify-common ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] -------------------< com.washy.dify:dify-feign-api >--------------------
+[INFO] Building dify-feign-api 1.0                                       [3/13]
+[INFO]   from dify-feign-api\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.2.0:resources (default-resources) @ dify-feign-api ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 0 resource
+[INFO] Copying 0 resource
+[INFO] 
+[INFO] --- compiler:3.10.1:compile (default-compile) @ dify-feign-api ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] ------------------< com.washy.dify:dify-llm-service >-------------------
+[INFO] Building dify-llm-service 1.0                                     [4/13]
+[INFO]   from dify-llm-service\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.2.0:resources (default-resources) @ dify-llm-service ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 2 resources
+[INFO] Copying 0 resource
+[INFO] 
+[INFO] --- compiler:3.10.1:compile (default-compile) @ dify-llm-service ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] ------------------< com.washy.dify:dify-rag-service >-------------------
+[INFO] Building dify-rag-service 1.0                                     [5/13]
+[INFO]   from dify-rag-service\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.2.0:resources (default-resources) @ dify-rag-service ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 2 resources
+[INFO] Copying 0 resource
+[INFO] 
+[INFO] --- compiler:3.10.1:compile (default-compile) @ dify-rag-service ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] ----------------< com.washy.dify:dify-function-service >----------------
+[INFO] Building dify-function-service 1.0                                [6/13]
+[INFO]   from dify-function-service\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.2.0:resources (default-resources) @ dify-function-service ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 2 resources
+[INFO] Copying 0 resource
+[INFO] 
+[INFO] --- compiler:3.10.1:compile (default-compile) @ dify-function-service ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] -----------------< com.washy.dify:dify-agent-service >------------------
+[INFO] Building dify-agent-service 1.0                                   [7/13]
+[INFO]   from dify-agent-service\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[WARNING] The artifact mysql:mysql-connector-java:jar:8.0.33 has been relocated to com.mysql:mysql-connector-j:jar:8.0.33: MySQL Connector/J artifacts moved to reverse-DNS compliant Maven 2+ coordinates.
+[INFO] 
+[INFO] --- resources:3.2.0:resources (default-resources) @ dify-agent-service ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 2 resources
+[INFO] Copying 1 resource
+[INFO] 
+[INFO] --- compiler:3.10.1:compile (default-compile) @ dify-agent-service ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] ------------------< com.washy.dify:dify-api-gateway >-------------------
+[INFO] Building dify-api-gateway 1.0                                     [8/13]
+[INFO]   from dify-api-gateway\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.2.0:resources (default-resources) @ dify-api-gateway ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 2 resources
+[INFO] Copying 0 resource
+[INFO] 
+[INFO] --- compiler:3.10.1:compile (default-compile) @ dify-api-gateway ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] -----------------< com.washy.dify:dify-eureka-server >------------------
+[INFO] Building dify-eureka-server 1.0                                   [9/13]
+[INFO]   from dify-eureka-server\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.2.0:resources (default-resources) @ dify-eureka-server ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 2 resources
+[INFO] Copying 0 resource
+[INFO] 
+[INFO] --- compiler:3.10.1:compile (default-compile) @ dify-eureka-server ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] ------------------< com.washy.dify:dify-user-service >------------------
+[INFO] Building dify-user-service 1.0                                   [10/13]
+[INFO]   from dify-user-service\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[WARNING] The artifact mysql:mysql-connector-java:jar:8.0.33 has been relocated to com.mysql:mysql-connector-j:jar:8.0.33: MySQL Connector/J artifacts moved to reverse-DNS compliant Maven 2+ coordinates.
+[INFO] 
+[INFO] --- resources:3.2.0:resources (default-resources) @ dify-user-service ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 2 resources
+[INFO] Copying 1 resource
+[INFO] 
+[INFO] --- compiler:3.10.1:compile (default-compile) @ dify-user-service ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --------------< com.washy.dify.prompt:dify-prompt-engine >--------------
+[INFO] Building dify-prompt-engine 1.0                                  [11/13]
+[INFO]   from dify-prompt-engine\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[WARNING] The artifact mysql:mysql-connector-java:jar:8.0.33 has been relocated to com.mysql:mysql-connector-j:jar:8.0.33: MySQL Connector/J artifacts moved to reverse-DNS compliant Maven 2+ coordinates.
+[INFO] 
+[INFO] --- resources:3.2.0:resources (default-resources) @ dify-prompt-engine ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 2 resources
+[INFO] Copying 5 resources
+[INFO] 
+[INFO] --- compiler:3.10.1:compile (default-compile) @ dify-prompt-engine ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] -----------< com.washy.dify.workflow:dify-workflow-service >------------
+[INFO] Building dify-workflow-service 1.0                               [12/13]
+[INFO]   from dify-workflow-service\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[WARNING] The artifact mysql:mysql-connector-java:jar:8.0.33 has been relocated to com.mysql:mysql-connector-j:jar:8.0.33: MySQL Connector/J artifacts moved to reverse-DNS compliant Maven 2+ coordinates.
+[INFO] 
+[INFO] --- resources:3.2.0:resources (default-resources) @ dify-workflow-service ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 2 resources
+[INFO] Copying 1 resource
+[INFO] 
+[INFO] --- compiler:3.10.1:compile (default-compile) @ dify-workflow-service ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] -----------------< com.washy.dify:dify-model-provider >-----------------
+[INFO] Building dify-model-provider 1.0                                 [13/13]
+[INFO]   from dify-model-provider\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[WARNING] The artifact mysql:mysql-connector-java:jar:8.0.33 has been relocated to com.mysql:mysql-connector-j:jar:8.0.33: MySQL Connector/J artifacts moved to reverse-DNS compliant Maven 2+ coordinates.
+[INFO] 
+[INFO] --- resources:3.2.0:resources (default-resources) @ dify-model-provider ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 2 resources
+[INFO] Copying 1 resource
+[INFO] 
+[INFO] --- compiler:3.10.1:compile (default-compile) @ dify-model-provider ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for dify-ai-platform 1.0:
+[INFO] 
+[INFO] dify-ai-platform ................................... SUCCESS [  0.010 s]
+[INFO] dify-common ........................................ SUCCESS [ 28.651 s]
+[INFO] dify-feign-api ..................................... SUCCESS [  8.796 s]
+[INFO] dify-llm-service ................................... SUCCESS [  8.937 s]
+[INFO] dify-rag-service ................................... SUCCESS [ 10.138 s]
+[INFO] dify-function-service .............................. SUCCESS [  4.868 s]
+[INFO] dify-agent-service ................................. SUCCESS [ 13.949 s]
+[INFO] dify-api-gateway ................................... SUCCESS [ 16.223 s]
+[INFO] dify-eureka-server ................................. SUCCESS [  7.664 s]
+[INFO] dify-user-service .................................. SUCCESS [  8.614 s]
+[INFO] dify-prompt-engine ................................. SUCCESS [ 13.436 s]
+[INFO] dify-workflow-service .............................. SUCCESS [ 11.341 s]
+[INFO] dify-model-provider ................................ SUCCESS [  7.314 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  02:30 min
+[INFO] Finished at: 2026-06-26T15:52:38+08:00
+[INFO] ------------------------------------------------------------------------
